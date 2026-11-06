@@ -50,6 +50,12 @@ Collections are created automatically: entries, persons, settings, users,
 and audit_logs.
 Changes made directly in the Firebase console show up in the app after you restart it.
 
+Kumati schemes are isolated. Admins and managers can create named schemes and
+switch between them; managers can access all schemes. Viewers can be assigned
+to one or more schemes by an admin and only see the schemes assigned to them.
+Entries, people, balances, expenses, reports, receipts, backups, and unit
+prices are scoped to the selected scheme.
+
 The monthly report supports PDF and Excel downloads. The Excel workbook contains
 separate `Entries` and `Summary` sheets. On supported browsers, the app can also
 be installed as a progressive web app from the browser's install option.

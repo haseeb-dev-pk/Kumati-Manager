@@ -54,7 +54,9 @@ LOCK = threading.RLock()
 db = None
 entries = {}     # entry id  -> dict
 persons = {}     # person key (lower-case name) -> dict
+schemes = {}     # scheme id -> dict
 settings = {"UnitPrice": DEFAULT_UNIT_PRICE}
+scheme_settings = {}
 ROLES = ("admin", "manager", "viewer")
 
 
@@ -79,6 +81,7 @@ def init_db():
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     load_all()
+    ensure_default_scheme()
     ensure_initial_admin()
 
 
@@ -102,6 +105,12 @@ def load_all():
     with LOCK:
         entries.clear()
         persons.clear()
+        schemes.clear()
+        scheme_settings.clear()
+        for d in db.collection("schemes").stream():
+            x = d.to_dict()
+            x["Id"] = d.id
+            schemes[d.id] = x
         for d in db.collection("entries").stream():
             x = d.to_dict()
             x["Id"] = d.id
@@ -116,6 +125,41 @@ def load_all():
             settings["UnitPrice"] = snap.to_dict()["UnitPrice"]
         else:
             ref.set({"UnitPrice": DEFAULT_UNIT_PRICE}, merge=True)
+        for scheme_id in schemes:
+            config = db.collection("settings").document(scheme_id).get()
+            scheme_settings[scheme_id] = (config.to_dict() or {}).get(
+                "UnitPrice", DEFAULT_UNIT_PRICE) if config.exists else DEFAULT_UNIT_PRICE
+
+
+def ensure_default_scheme():
+    if schemes:
+        return
+    ref = db.collection("schemes").document()
+    doc = {"Name": "Main Kumati", "CreatedAt": now_iso(), "Active": True}
+    ref.set(doc)
+    schemes[ref.id] = dict(doc, Id=ref.id)
+
+
+def permitted_scheme_ids():
+    if session.get("role") in ("admin", "manager"):
+        return set(schemes)
+    if not FIREBASE_WEB_API_KEY and not APP_PASSWORD:
+        return set(schemes)
+    return set(session.get("scheme_ids") or ())
+
+
+def requested_scheme_id(payload=None):
+    scheme_id = (payload or {}).get("SchemeId") if payload else None
+    scheme_id = scheme_id or request.args.get("scheme") or request.headers.get("X-Scheme-Id")
+    if not scheme_id:
+        scheme_id = session.get("scheme_id")
+    if scheme_id not in permitted_scheme_ids():
+        raise ValueError("Select a scheme you are allowed to access")
+    return scheme_id
+
+
+def scheme_entries(scheme_id):
+    return [e for e in snapshot() if e.get("SchemeId") == scheme_id]
 
 
 def now_iso():
@@ -180,7 +224,8 @@ def login():
                 if role not in ROLES:
                     return jsonify(error="Your account has no valid role"), 403
                 session.clear()
-                session.update(ok=True, uid=user["uid"], email=user.get("email", email), role=role)
+                session.update(ok=True, uid=user["uid"], email=user.get("email", email), role=role,
+                               scheme_ids=(profile.to_dict() or {}).get("SchemeIds", []))
                 session.permanent = True
                 return jsonify(ok=True)
             except (ValueError, KeyError, auth.InvalidIdTokenError):
@@ -236,6 +281,32 @@ def logout():
     return jsonify(ok=True)
 
 
+@app.get("/api/schemes")
+def list_schemes():
+    allowed = permitted_scheme_ids()
+    out = [dict(Id=sid, Name=schemes[sid].get("Name", "Unnamed"))
+           for sid in allowed if sid in schemes and schemes[sid].get("Active", True)]
+    out.sort(key=lambda item: item["Name"].lower())
+    return jsonify(out)
+
+
+@app.post("/api/schemes")
+@role_required("admin", "manager")
+def create_scheme():
+    payload = request.get_json(silent=True) or {}
+    name = re.sub(r"\s+", " ", str(payload.get("Name") or "").strip())[:100]
+    if not name:
+        return jsonify(error="Scheme name is required"), 400
+    if any(s.get("Name", "").casefold() == name.casefold() for s in schemes.values()):
+        return jsonify(error="A scheme with that name already exists"), 400
+    ref = db.collection("schemes").document()
+    doc = {"Name": name, "CreatedAt": now_iso(), "Active": True}
+    ref.set(doc)
+    schemes[ref.id] = dict(doc, Id=ref.id)
+    audit("scheme_created", {"SchemeId": ref.id, "Name": name})
+    return jsonify(Id=ref.id, Name=name), 201
+
+
 @app.get("/api/users")
 @role_required("admin")
 def list_users():
@@ -243,7 +314,8 @@ def list_users():
     for doc in db.collection("users").stream():
         user = doc.to_dict()
         out.append(dict(Id=doc.id, Email=user.get("Email", ""), Role=user.get("Role", "viewer"),
-                        Disabled=bool(user.get("Disabled", False))))
+                        Disabled=bool(user.get("Disabled", False)),
+                        SchemeIds=user.get("SchemeIds", [])))
     out.sort(key=lambda item: item["Email"].lower())
     return jsonify(out)
 
@@ -255,19 +327,25 @@ def create_user():
     email = str(payload.get("Email") or "").strip().lower()
     password = str(payload.get("Password") or "")
     role = str(payload.get("Role") or "viewer").lower()
+    scheme_ids = payload.get("SchemeIds") or []
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         return jsonify(error="Enter a valid email address"), 400
     if len(password) < 6:
         return jsonify(error="Password must be at least 6 characters"), 400
     if role not in ROLES:
         return jsonify(error="Invalid role"), 400
+    if not isinstance(scheme_ids, list) or not set(scheme_ids).issubset(schemes):
+        return jsonify(error="Invalid scheme assignment"), 400
+    if role == "viewer" and not scheme_ids:
+        return jsonify(error="Assign at least one scheme to a viewer"), 400
     try:
         user = auth.create_user(email=email, password=password)
     except (auth.EmailAlreadyExistsError, ValueError) as exc:
         return jsonify(error="That email is already in use"), 400
     auth.set_custom_user_claims(user.uid, {"role": role})
     db.collection("users").document(user.uid).set({
-        "Email": email, "Role": role, "Disabled": False, "UpdatedAt": now_iso()
+        "Email": email, "Role": role, "SchemeIds": scheme_ids if role == "viewer" else [],
+        "Disabled": False, "UpdatedAt": now_iso()
     })
     audit("user_created", {"UserId": user.uid, "Email": email, "Role": role})
     return jsonify(ok=True), 201
@@ -279,10 +357,16 @@ def update_user(uid):
     payload = request.get_json(silent=True) or {}
     role = str(payload.get("Role") or "").lower()
     password = str(payload.get("Password") or "")
+    scheme_ids = payload.get("SchemeIds")
     if role not in ROLES:
         return jsonify(error="Invalid role"), 400
     if password and len(password) < 6:
         return jsonify(error="Password must be at least 6 characters"), 400
+    if scheme_ids is not None and (not isinstance(scheme_ids, list) or
+                                   not set(scheme_ids).issubset(schemes)):
+        return jsonify(error="Invalid scheme assignment"), 400
+    if role == "viewer" and scheme_ids is not None and not scheme_ids:
+        return jsonify(error="Assign at least one scheme to a viewer"), 400
     try:
         user = auth.get_user(uid)
     except auth.UserNotFoundError:
@@ -292,9 +376,12 @@ def update_user(uid):
     auth.set_custom_user_claims(uid, {"role": role})
     if password:
         auth.update_user(uid, password=password)
-    db.collection("users").document(uid).set({"Email": user.email, "Role": role,
+    update = {"Email": user.email, "Role": role,
                                                "Disabled": bool(user.disabled),
-                                               "UpdatedAt": now_iso()}, merge=True)
+                                               "UpdatedAt": now_iso()}
+    if scheme_ids is not None:
+        update["SchemeIds"] = scheme_ids if role == "viewer" else []
+    db.collection("users").document(uid).set(update, merge=True)
     audit("user_updated", {"UserId": uid, "Email": user.email, "Role": role,
                            "PasswordReset": bool(password)})
     return jsonify(ok=True)
@@ -323,10 +410,12 @@ def healthz():
 @app.get("/api/backup")
 @role_required("admin")
 def backup():
+    scheme_id = requested_scheme_id()
     return send_file(BytesIO(json.dumps({
         "exported_at": now_iso(),
-        "entries": snapshot(),
-        "persons": list(persons.values()),
+        "scheme": schemes[scheme_id],
+        "entries": scheme_entries(scheme_id),
+        "persons": [p for p in persons.values() if p.get("SchemeId") == scheme_id],
         "settings": settings,
     }, indent=2, ensure_ascii=False).encode("utf-8")),
                     mimetype="application/json", as_attachment=True,
@@ -340,12 +429,12 @@ def index():
 
 
 # -------------------------- month-wise summary ------------------------
-def build_summary():
+def build_summary(scheme_id):
     """Table 2. remaining = previous month remaining + IN - OUT - EXPENSE."""
     zero = lambda m: dict(Month=m, InUnits=0, InAmount=0.0, OutUnits=0,
                           OutAmount=0.0, Expense=0.0)
     by, outs = {}, {}
-    for e in snapshot():
+    for e in scheme_entries(scheme_id):
         m = e["EntryDate"][:7]
         d = by.setdefault(m, zero(m))
         amt, units, t = float(e.get("Amount") or 0), int(e.get("Units") or 0), e["EntryType"]
@@ -377,23 +466,24 @@ def build_summary():
 
 @app.get("/api/summary")
 def summary():
-    current, data = build_summary()
+    current, data = build_summary(requested_scheme_id())
     return jsonify(dict(current=current, months=data))
 
 
 # ----------------------------- entries (Table 1) ----------------------
-def fetch_entries(month):
-    rows = [e for e in snapshot() if e["EntryDate"][:7] == month]
+def fetch_entries(month, scheme_id):
+    rows = [e for e in scheme_entries(scheme_id) if e["EntryDate"][:7] == month]
     rows.sort(key=lambda e: (e["EntryDate"], e.get("CreatedAt") or "", e["Id"]))
     return [public(e) for e in rows]
 
 
 @app.get("/api/entries")
 def list_entries():
-    return jsonify(fetch_entries(request.args.get("month", today_date().strftime("%Y-%m"))))
+    return jsonify(fetch_entries(request.args.get("month", today_date().strftime("%Y-%m")),
+                                requested_scheme_id()))
 
 
-def read_payload():
+def read_payload(scheme_id):
     j = request.get_json(force=True, silent=True) or {}
     etype = j.get("EntryType")
     if etype not in ("IN", "OUT", "EXPENSE"):
@@ -422,13 +512,13 @@ def read_payload():
         if units <= 0:
             raise ValueError("Kumati count must be at least 1")
         if amount <= 0:
-            amount = units * float(settings["UnitPrice"])
+            amount = units * float(scheme_settings.get(scheme_id, DEFAULT_UNIT_PRICE))
         phone = str(j.get("Phone") or "").strip()[:20] or None
         method = str(j.get("PayMethod") or "").strip()[:20] or None
-        existing = persons.get(person_key(name))
+        existing = persons.get(f"{scheme_id}:{person_key(name)}")
         if existing:                       # "danish" and "Danish" are one person
             name = existing["Name"]
-    return dict(EntryDate=d.isoformat(), EntryType=etype, PersonName=name,
+    return dict(SchemeId=scheme_id, EntryDate=d.isoformat(), EntryType=etype, PersonName=name,
                 Phone=phone, PayMethod=method, Units=units, Amount=amount,
                 Note=str(j.get("Note") or "").strip()[:200] or None)
 
@@ -450,37 +540,42 @@ def worst_balance(items):
 
 def ensure_cash_ok(after_items):
     """Refuse a change that would push remaining cash below zero."""
-    before, _ = worst_balance(list(entries.values()))
+    scheme_id = next((e.get("SchemeId") for e in after_items if e.get("SchemeId")), None)
+    before_items = [e for e in entries.values() if e.get("SchemeId") == scheme_id]
+    before, _ = worst_balance(before_items)
     after, month = worst_balance(after_items)
     if after < -0.005 and after < before - 0.005:
         raise ValueError(f"Not enough cash: this would make remaining cash negative in {month}. "
                          "Add the kumati in first, or reduce the amount.")
 
 
-def save_person(name, phone, method):
+def save_person(scheme_id, name, phone, method):
     """Remember a person forever (added once, phone/method updated later)."""
     key = person_key(name)
-    cur = persons.get(key, {})
+    person_id = f"{scheme_id}:{key}"
+    cur = persons.get(person_id, {})
     doc = dict(Name=cur.get("Name", name), Phone=phone or cur.get("Phone"),
                PayMethod=method or cur.get("PayMethod"),
                CreatedAt=cur.get("CreatedAt") or now_iso())
-    db.collection("persons").document(key).set(doc)
-    persons[key] = dict(doc, Id=key)
+    doc["SchemeId"] = scheme_id
+    db.collection("persons").document(person_id).set(doc)
+    persons[person_id] = dict(doc, Id=person_id)
 
 
 @app.post("/api/entries")
 @role_required("admin", "manager")
 def add_entry():
     try:
-        p = read_payload()
+        scheme_id = requested_scheme_id(request.get_json(silent=True) or {})
+        p = read_payload(scheme_id)
         with LOCK:
-            ensure_cash_ok(list(entries.values()) + [p])
+            ensure_cash_ok(scheme_entries(scheme_id) + [p])
             doc = dict(p, CreatedAt=now_iso())
             ref = db.collection("entries").document()
             ref.set(doc)
             entries[ref.id] = dict(doc, Id=ref.id)
             if p["EntryType"] != "EXPENSE":
-                save_person(p["PersonName"], p["Phone"], p["PayMethod"])
+                save_person(scheme_id, p["PersonName"], p["Phone"], p["PayMethod"])
             audit("entry_created", {"EntryId": ref.id, "EntryType": p["EntryType"]})
     except ValueError as e:
         return jsonify(error=str(e)), 400
@@ -491,18 +586,22 @@ def add_entry():
 @role_required("admin", "manager")
 def edit_entry(eid):
     try:
-        p = read_payload()
+        old = entries.get(eid)
+        if not old:
+            raise ValueError("Entry not found (it may have been deleted)")
+        scheme_id = requested_scheme_id(request.get_json(silent=True) or {})
+        if old.get("SchemeId") != scheme_id:
+            raise ValueError("Entry does not belong to the selected scheme")
+        p = read_payload(scheme_id)
         with LOCK:
-            old = entries.get(eid)
-            if not old:
-                raise ValueError("Entry not found (it may have been deleted)")
-            after = [dict(p, Id=eid) if k == eid else v for k, v in entries.items()]
+            after = [dict(p, Id=eid) if k == eid else v
+                     for k, v in entries.items() if v.get("SchemeId") == scheme_id]
             ensure_cash_ok(after)
             doc = dict(p, CreatedAt=old.get("CreatedAt") or now_iso())
             db.collection("entries").document(eid).set(doc)
             entries[eid] = dict(doc, Id=eid)
             if p["EntryType"] != "EXPENSE":
-                save_person(p["PersonName"], p["Phone"], p["PayMethod"])
+                save_person(scheme_id, p["PersonName"], p["Phone"], p["PayMethod"])
             audit("entry_updated", {"EntryId": eid, "EntryType": p["EntryType"]})
     except ValueError as e:
         return jsonify(error=str(e)), 400
@@ -514,9 +613,11 @@ def edit_entry(eid):
 def delete_entry(eid):
     try:
         with LOCK:
-            if eid not in entries:
+            scheme_id = requested_scheme_id()
+            if eid not in entries or entries[eid].get("SchemeId") != scheme_id:
                 raise ValueError("Entry not found (it may have been deleted)")
-            ensure_cash_ok([v for k, v in entries.items() if k != eid])
+            ensure_cash_ok([v for k, v in entries.items()
+                            if k != eid and v.get("SchemeId") == scheme_id])
             db.collection("entries").document(eid).delete()
             entries.pop(eid)
             audit("entry_deleted", {"EntryId": eid})
@@ -528,14 +629,17 @@ def delete_entry(eid):
 # ------------------------------ settings -------------------------------
 @app.get("/api/settings")
 def read_settings():
-    return jsonify(UnitPrice=settings["UnitPrice"],
+    scheme_id = requested_scheme_id()
+    return jsonify(UnitPrice=scheme_settings.get(scheme_id, DEFAULT_UNIT_PRICE),
                    Auth=bool(FIREBASE_WEB_API_KEY or APP_PASSWORD),
-                   Role=session.get("role", "admin"), Email=session.get("email", ""))
+                   Role=session.get("role", "admin"), Email=session.get("email", ""),
+                   SchemeId=scheme_id, SchemeName=schemes[scheme_id]["Name"])
 
 
 @app.put("/api/settings")
 @role_required("admin", "manager")
 def save_settings():
+    scheme_id = requested_scheme_id()
     try:
         price = float((request.get_json(force=True, silent=True) or {}).get("UnitPrice"))
     except (TypeError, ValueError):
@@ -544,8 +648,8 @@ def save_settings():
         return jsonify(error="Price must be more than 0"), 400
     price = int(price) if price.is_integer() else price
     with LOCK:
-        db.collection("settings").document("config").set({"UnitPrice": price}, merge=True)
-        settings["UnitPrice"] = price
+        db.collection("settings").document(scheme_id).set({"UnitPrice": price}, merge=True)
+        scheme_settings[scheme_id] = price
         audit("unit_price_changed", {"UnitPrice": price})
     return jsonify(UnitPrice=price)
 
@@ -557,8 +661,9 @@ def person_of(e):
 
 @app.get("/api/persons")
 def list_persons():
+    scheme_id = requested_scheme_id()
     agg = {}
-    for e in snapshot():
+    for e in scheme_entries(scheme_id):
         if e["EntryType"] == "EXPENSE":
             continue
         a = agg.setdefault(person_of(e), dict(InUnits=0, InAmount=0.0, OutUnits=0, OutAmount=0.0))
@@ -566,7 +671,7 @@ def list_persons():
         a[k + "Units"] += int(e.get("Units") or 0)
         a[k + "Amount"] += float(e.get("Amount") or 0)
     with LOCK:
-        plist = list(persons.values())
+        plist = [p for p in persons.values() if p.get("SchemeId") == scheme_id]
     zero = dict(InUnits=0, InAmount=0.0, OutUnits=0, OutAmount=0.0)
     out = [dict(Id=p["Id"], Name=p["Name"], Phone=p.get("Phone"), PayMethod=p.get("PayMethod"),
                 **agg.get(p["Id"], zero)) for p in plist]
@@ -576,12 +681,15 @@ def list_persons():
 
 @app.get("/api/person-entries")
 def person_entries():
-    key = request.args.get("key", "")
+    scheme_id = requested_scheme_id()
+    raw_key = request.args.get("key", "")
+    key = f"{scheme_id}:{raw_key}" if ":" not in raw_key else raw_key
     with LOCK:
         p = persons.get(key)
     if not p:
         return jsonify(error="Person not found"), 404
-    rows = [public(e) for e in snapshot() if e["EntryType"] != "EXPENSE" and person_of(e) == key]
+    rows = [public(e) for e in scheme_entries(scheme_id)
+            if e["EntryType"] != "EXPENSE" and f"{scheme_id}:{person_of(e)}" == key]
     rows.sort(key=lambda e: (e["EntryDate"], e["Id"]), reverse=True)
     return jsonify(person=dict(Id=p["Id"], Name=p["Name"], Phone=p.get("Phone"),
                                PayMethod=p.get("PayMethod")), entries=rows)
@@ -625,7 +733,7 @@ def make_receipt_pdf(entry):
 @app.get("/api/receipt/<eid>")
 def receipt(eid):
     entry = entries.get(eid)
-    if not entry:
+    if not entry or entry.get("SchemeId") not in permitted_scheme_ids():
         return jsonify(error="Entry not found"), 404
     try:
         import reportlab  # noqa: F401
@@ -740,8 +848,9 @@ def pdf_report():
         import reportlab  # noqa: F401
     except ImportError:
         return "PDF needs the reportlab package. In the terminal run: python -m pip install reportlab", 500
-    _, months = build_summary()
-    return send_file(BytesIO(make_pdf(month, fetch_entries(month), months)),
+    scheme_id = requested_scheme_id()
+    _, months = build_summary(scheme_id)
+    return send_file(BytesIO(make_pdf(month, fetch_entries(month, scheme_id), months)),
                      mimetype="application/pdf", as_attachment=True,
                      download_name=f"kumati-{month}.pdf")
 
@@ -757,8 +866,9 @@ def xlsx_report():
     except ImportError:
         return "Excel export needs openpyxl. Install requirements.txt first.", 500
 
-    _, months = build_summary()
-    rows = fetch_entries(month)
+    scheme_id = requested_scheme_id()
+    _, months = build_summary(scheme_id)
+    rows = fetch_entries(month, scheme_id)
     workbook = Workbook()
     entries_sheet = workbook.active
     entries_sheet.title = "Entries"
