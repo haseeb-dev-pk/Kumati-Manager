@@ -23,20 +23,28 @@ body{
     radial-gradient(1100px 650px at 90% -10%, rgba(42,200,120,.55), transparent 60%),
     radial-gradient(900px 600px at -10% 5%, rgba(196,120,255,.55), transparent 58%),
     radial-gradient(900px 500px at 50% 120%, rgba(255,190,80,.28), transparent 60%),
-    linear-gradient(160deg,#1a0a3a 0%,#32116f 45%,#0b4a3c 100%);
+    linear-gradient(160deg,#170936 0%,#301064 45%,#083d35 100%);
   background-attachment:fixed;
 }
-main{max-width:1180px;margin:0 auto;padding:22px 16px 70px}
-header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
-h1{margin:0;font-size:28px;letter-spacing:-.01em;color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
-h1 small{display:block;font-size:13px;font-weight:400;opacity:.8;letter-spacing:0}
-.tools{display:flex;gap:12px;flex-wrap:wrap}
+main{max-width:1240px;margin:0 auto;padding:28px 20px 76px}
+header{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,1.8fr);align-items:center;gap:22px;
+  padding:18px 20px;margin-bottom:22px;border:1px solid rgba(255,255,255,.25);border-radius:22px;
+  background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.07));
+  box-shadow:0 18px 42px rgba(8,0,35,.38),inset 0 1px 0 rgba(255,255,255,.28);
+  backdrop-filter:blur(14px)}
+h1{margin:0;font-size:30px;letter-spacing:-.02em;color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+h1 small{display:block;margin-top:3px;font-size:12px;font-weight:400;opacity:.78;letter-spacing:0}
+.tools{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center}
+.scheme-tools{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.account-tools,.entry-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.account-tools{justify-content:flex-end}
+.entry-tools{grid-column:1/-1}
 
 /* ---------- 3D buttons ---------- */
 button{font:inherit;cursor:pointer;color:inherit}
 .btn{
   --c1:#9a5cf0; --c2:#6a1fc9; --c3:#45128a;
-  border:0;border-radius:12px;padding:10px 18px;font-weight:700;color:#fff;
+  border:0;border-radius:11px;padding:10px 16px;font-weight:700;color:#fff;white-space:nowrap;
   background:linear-gradient(180deg,var(--c1),var(--c2));
   box-shadow:0 6px 0 var(--c3), 0 12px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);
   text-shadow:0 1px 1px rgba(0,0,0,.35);
@@ -95,22 +103,13 @@ h2{margin:34px 0 12px;font-size:20px;color:#fff;text-shadow:0 2px 10px rgba(0,0,
 .hint{color:rgba(255,255,255,.8);font-size:13px;margin:10px 2px}
 
 /* ---------- kpis, search, toast ---------- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
 .kpi{color:#fff;border-radius:16px;padding:12px 16px;
-  background:linear-gradient(160deg,rgba(255,255,255,.20),rgba(255,255,255,.07));
+  background:linear-gradient(160deg,rgba(255,255,255,.23),rgba(255,255,255,.09));
   border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px);
   box-shadow:0 10px 24px rgba(10,0,40,.35),inset 0 1px 0 rgba(255,255,255,.3)}
 .kpi span{display:block;font-size:12px;opacity:.85}
 .kpi b{font-size:21px;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px rgba(0,0,0,.3)}
-.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:22px}
-.chart{background:rgba(255,255,255,.94);border-radius:14px;padding:14px;box-shadow:0 10px 24px rgba(10,0,40,.3)}
-.chart h3{margin:0 0 12px;color:#32116f;font-size:16px}
-.bars{height:150px;display:flex;align-items:end;gap:5px;border-bottom:1px solid var(--line);padding:0 4px}
-.bar-col{height:100%;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;min-width:0}
-.bar{width:100%;max-width:28px;border-radius:5px 5px 0 0;background:linear-gradient(#9a5cf0,#6a1fc9);min-height:2px}
-.bar.negative{background:linear-gradient(#ff8a7a,#d12d2d)}
-.bar-label{font-size:10px;color:var(--muted);margin-top:5px;white-space:nowrap;transform:rotate(-35deg)}
-.chart-note{font-size:12px;color:var(--muted);margin-top:10px}
 .search{width:100%;margin-bottom:12px;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.35);
   background:rgba(255,255,255,.92);box-shadow:0 6px 16px rgba(10,0,40,.25)}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,30px);opacity:0;pointer-events:none;
@@ -118,11 +117,8 @@ h2{margin:34px 0 12px;font-size:20px;color:#fff;text-shadow:0 2px 10px rgba(0,0,
   box-shadow:0 14px 34px rgba(0,0,0,.45);transition:opacity .2s,transform .2s;max-width:92vw}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .toast.bad{background:#b4231f}
-.connection{font-size:12px;color:#d8ffe7;background:rgba(0,0,0,.2);padding:5px 9px;border-radius:99px}
-.connection.bad{color:#ffd4d4}
-
 /* ---------- calendar layout ---------- */
-.layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start}
 .content{min-width:0}
 .cal{position:sticky;top:16px;border-radius:20px;padding:16px;color:#fff;
   background:linear-gradient(160deg,rgba(255,255,255,.20),rgba(255,255,255,.07));
@@ -159,7 +155,10 @@ h2{margin:34px 0 12px;font-size:20px;color:#fff;text-shadow:0 2px 10px rgba(0,0,
 .mhead{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#8a3df0,#6a1fc9);color:#fff;padding:13px 16px;font-weight:600}
 .mhead .name{background:rgba(255,255,255,.22);padding:3px 14px;border-radius:99px}
 .summary tbody tr.selrow td{background:#dff7ea}
-@media(max-width:900px){.layout{grid-template-columns:1fr}.cal{position:static}}
+@media(max-width:1050px){header{grid-template-columns:1fr}.tools{width:100%}}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.cal{position:static}.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.tools{grid-template-columns:1fr}.account-tools{justify-content:flex-start}}
+@media(max-width:520px){main{padding:16px 12px 55px}.kpis{grid-template-columns:1fr 1fr}h1{font-size:26px}.entry-tools .btn{flex:1}}
 
 /* ---------- dialogs ---------- */
 dialog{border:0;border-radius:16px;padding:0;width:min(520px,94vw);overflow:visible;
@@ -176,7 +175,23 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
 .err{grid-column:1/-1;color:var(--out);min-height:1em;font-size:13px}
 .expform h3{color:var(--exp)}
 .expnote{grid-column:1/-1;background:#fff6ee;border:1px solid #ffd9b8;border-radius:9px;padding:8px 10px;font-size:13px;color:#7a3a07}
+#schemeSelect{width:auto;min-width:210px;padding:9px 12px;font-weight:700}
+.scheme-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;
+  background:var(--lav2);border:1px solid var(--line);border-radius:11px}
+.scheme-card strong{display:block;color:var(--ink)}.scheme-card small{color:var(--muted)}
+.user-list{display:grid;gap:9px;margin-top:18px}
+.user-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:10px;
+  padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:11px}
+.user-card .identity{min-width:0}.user-card .identity strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-card .identity small{color:var(--muted)}.user-card select{width:auto;min-width:105px;padding:7px}
+#uSchemes{grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+#uSchemes legend{padding:0 5px;color:var(--muted);font-size:13px}
+.scheme-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.scheme-choices label{display:flex;flex-direction:row;align-items:center;padding:8px 10px;background:var(--lav2);
+  border-radius:8px;color:var(--ink);cursor:pointer}
+.scheme-choices input{width:auto}
 @media(max-width:600px){form{grid-template-columns:1fr}}
+@media(max-width:680px){.user-card{grid-template-columns:1fr 1fr}.user-card .identity{grid-column:1/-1}}
 
 /* person combo box */
 .combo{position:relative;display:flex;gap:6px}
@@ -208,23 +223,21 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
   <header>
     <h1>Kumati Manager <small>Entries, people and monthly cash in one place</small></h1>
     <div class="tools">
-      <span class="connection" id="connection">Connecting...</span>
-      <select id="schemeSelect" class="btn grey" aria-label="Select scheme"></select>
-      <button class="btn grey" id="newSchemeBtn" hidden>+ New kumati</button>
-      <button class="btn grey" id="logoutBtn" hidden>Log out</button>
-      <button class="btn grey" id="usersBtn" hidden>👥 Users</button>
-      <button class="btn grey" id="backupBtn" hidden>⬇ Backup JSON</button>
-      <button class="btn grey" id="priceBtn">⚙ Price per kumati</button>
-      <button class="btn blue" id="findBtn">🔍 Find person</button>
-      <button class="btn" id="addBtn">+ Kumati in</button>
-      <button class="btn red" id="outBtn">↑ Kumati out</button>
-      <button class="btn orange" id="expBtn">Add expense</button>
+      <div class="scheme-tools">
+        <select id="schemeSelect" class="btn grey" aria-label="Select scheme"></select>
+        <button class="btn grey" id="newSchemeBtn" hidden>+ New kumati</button>
+        <button class="btn grey" id="logoutBtn" hidden>Log out</button>
+        <button class="btn grey" id="usersBtn" hidden>👥 Users</button>
+        <button class="btn grey" id="priceBtn">⚙ Price per kumati</button>
+        <button class="btn blue" id="findBtn">🔍 Find person</button>
+        <button class="btn" id="addBtn">+ Kumati in</button>
+        <button class="btn red" id="outBtn">↑ Kumati out</button>
+        <button class="btn orange" id="expBtn">Add expense</button>
+      </div>
     </div>
   </header>
 
   <div class="kpis" id="kpis"></div>
-  <div class="charts" id="charts"></div>
-
   <div class="layout">
   <aside class="cal" aria-label="Month calendar">
     <p class="cal-title">Calendar. Click a month to see its table.</p>
@@ -352,6 +365,23 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
   </div>
 </dialog>
 
+<dialog id="schemeDlg">
+  <form id="schemeForm" method="dialog" autocomplete="off">
+    <h3>Create new Kumati</h3>
+    <p class="expnote" style="grid-column:1/-1;background:var(--lav2);border-color:var(--line);color:var(--muted)">
+      Give this Kumati a clear name. Its entries, people, expenses, and reports will stay separate.
+    </p>
+    <label class="full">Kumati name
+      <input id="schemeName" maxlength="100" placeholder="e.g. Haseeb Family Kumati" required>
+    </label>
+    <div class="err" id="schemeErr" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn grey" id="schemeCancel">Cancel</button>
+      <button type="submit" class="btn green">Create Kumati</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="usersDlg" class="wide">
   <div class="dbody">
     <h3>User management</h3>
@@ -359,12 +389,11 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
       <label>Email <input type="email" id="uEmail" required></label>
       <label>Temporary password <input type="password" id="uPassword" minlength="6" required></label>
       <label>Role <select id="uRole"><option value="viewer">Viewer</option><option value="manager">Manager</option><option value="admin">Admin</option></select></label>
-      <fieldset id="uSchemes" hidden><legend>Viewer schemes</legend><div id="uSchemeChoices"></div></fieldset>
+      <fieldset id="uSchemes" hidden><legend>Viewer schemes</legend><div id="uSchemeChoices" class="scheme-choices"></div></fieldset>
       <div class="err" id="uErr" role="alert"></div>
       <button class="btn green" type="submit">Create user</button>
     </form>
-    <div class="scroll"><table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th></th></tr></thead>
-      <tbody id="userList"></tbody></table></div>
+    <div class="user-list" id="userList"></div>
     <div class="actions" style="display:flex;justify-content:flex-end;margin-top:10px">
       <button type="button" class="btn grey" id="usersClose">Close</button>
     </div>
@@ -400,7 +429,6 @@ const send = (url, method, body) => api(url, {method, headers:{'Content-Type':'a
 async function loadEntries(){ state.entries = await api('/api/entries?month='+state.sel); }
 
 async function refresh(){
-  const connection = $('#connection');
   try {
   state.schemes = await api('/api/schemes');
   const saved = localStorage.getItem('kumati-scheme');
@@ -411,11 +439,9 @@ async function refresh(){
   $('#schemeSelect').innerHTML = state.schemes.map(s => `<option value="${esc(s.Id)}">${esc(s.Name)}</option>`).join('');
   $('#schemeSelect').value = state.schemeId;
   const [s, persons, cfg] = await Promise.all([api('/api/summary'), api('/api/persons'), api('/api/settings')]);
-  connection.textContent = 'Connected'; connection.classList.remove('bad');
   state.current = s.current; state.months = s.months; state.persons = persons;
   state.unitPrice = cfg.UnitPrice; state.role = cfg.Role; updatePriceBtn();
   $('#logoutBtn').hidden = !cfg.Auth; $('#usersBtn').hidden = state.role !== 'admin';
-  $('#backupBtn').hidden = state.role !== 'admin';
   $('#newSchemeBtn').hidden = !['admin','manager'].includes(state.role);
   document.querySelectorAll('#addBtn,#outBtn,#expBtn,#priceBtn').forEach(b => b.hidden = state.role === 'viewer');
   if(!state.sel || !state.months.some(m => m.Month === state.sel)) state.sel = s.current;
@@ -423,7 +449,6 @@ async function refresh(){
   await loadEntries();
   render();
   } catch (err) {
-    connection.textContent = 'Connection error'; connection.classList.add('bad');
     toast(err.message || 'Could not load data', true);
     throw err;
   }
@@ -434,14 +459,17 @@ async function refresh(){
     await refresh();
   };
   $('#newSchemeBtn').onclick = async () => {
-    const name = prompt('Enter the new Kumati name:');
-    if (!name || !name.trim()) return;
+    $('#schemeName').value = ''; $('#schemeErr').textContent = '';
+    $('#schemeDlg').showModal(); $('#schemeName').focus();
+  };
+  $('#schemeCancel').onclick = () => $('#schemeDlg').close();
+  $('#schemeForm').onsubmit = async ev => {
+    ev.preventDefault();
     try {
-      const scheme = await send('/api/schemes', 'POST', {Name:name.trim()});
-      state.schemeId = scheme.Id;
-      await refresh();
+      const scheme = await send('/api/schemes', 'POST', {Name:$('#schemeName').value.trim()});
+      $('#schemeDlg').close(); state.schemeId = scheme.Id; await refresh();
       toast('New Kumati created');
-    } catch(err) { toast(err.message, true); }
+    } catch(err) { $('#schemeErr').textContent = err.message; }
   };
 }
 let toastTimer;
@@ -458,7 +486,7 @@ async function selectMonth(m){
 }
 
 /* ================= calendar + Table 1 + Table 2 ================= */
-function render(){ renderKpis(); renderCharts(); renderCal(); renderMonth(); renderSummary(); }
+function render(){ renderKpis(); renderCal(); renderMonth(); renderSummary(); }
 
 function renderKpis(){
   const last = state.months[state.months.length - 1];
@@ -471,28 +499,6 @@ function renderKpis(){
     ['Saved people', fmt(state.persons.length)],
   ].map(([l, v]) => `<div class="kpi"><span>${l}</span><b>${v}</b></div>`).join('');
 }
-function renderCharts(){
-  const recent = state.months.slice(-12);
-  const maxAbs = Math.max(1, ...recent.map(m => Math.abs(m.MonthNet)));
-  const maxCash = Math.max(1, ...recent.map(m => Math.abs(m.Remaining)));
-  const bars = (items, value, max, cls) => items.map(m => {
-    const n = Number(m[value] || 0);
-    const height = Math.max(2, Math.round(Math.abs(n) / max * 130));
-    return `<div class="bar-col" title="${monthLabel(m.Month)}: Rs ${fmt(n)}">
-      <div class="bar ${n < 0 ? 'negative' : ''} ${cls || ''}" style="height:${height}px"></div>
-      <span class="bar-label">${m.Month.slice(5)}</span></div>`;
-  }).join('');
-  $('#charts').innerHTML = `
-    <section class="chart"><h3>Monthly net cash flow</h3>
-      <div class="bars">${bars(recent, 'MonthNet', maxAbs)}</div>
-      <div class="chart-note">In minus out minus expenses. Red means a negative month.</div>
-    </section>
-    <section class="chart"><h3>Remaining cash</h3>
-      <div class="bars">${bars(recent, 'Remaining', maxCash, 'cash')}</div>
-      <div class="chart-note">Last 12 months, including the opening balance carried forward.</div>
-    </section>`;
-}
-
 function renderCal(){
   const years = state.months.map(m => +m.Month.slice(0,4)).concat(+state.current.slice(0,4));
   $('#year').textContent = state.year;
@@ -631,7 +637,6 @@ $('#Price').oninput = recalc;
 function updatePriceBtn(){ $('#priceBtn').textContent = '⚙ Price per kumati: Rs ' + fmt(state.unitPrice); }
 $('#priceBtn').onclick = () => { $('#sPrice').value = state.unitPrice; $('#sErr').textContent = ''; $('#priceDlg').showModal(); };
 $('#logoutBtn').onclick = async () => { await fetch('/logout', {method:'POST'}); location.href = '/login'; };
-$('#backupBtn').onclick = () => { location.href = '/api/backup'; };
 $('#sCancel').onclick = () => $('#priceDlg').close();
 $('#priceForm').onsubmit = async ev => {
   ev.preventDefault();
@@ -708,12 +713,18 @@ $('#expForm').onsubmit = async ev => {
 /* ================= user management ================= */
 async function loadUsers(){
   const users = await api('/api/users');
-  $('#userList').innerHTML = users.map(u => `<tr>
-    <td>${esc(u.Email)}</td><td><select data-role="${esc(u.Id)}">
-      ${['viewer','manager','admin'].map(r => `<option value="${r}" ${u.Role===r?'selected':''}>${r}</option>`).join('')}
-    </select></td><td>${u.Disabled ? 'Disabled' : 'Active'}</td>
-    <td>${u.Disabled ? '' : `<button class="btn sm blue" data-reset="${esc(u.Id)}">Reset</button>`}</td>
-    <td>${u.Disabled ? '' : `<button class="btn sm red" data-disable="${esc(u.Id)}">Disable</button>`}</td></tr>`).join('');
+  $('#userList').innerHTML = users.map(u => {
+    const assigned = (u.SchemeIds || []).map(id => state.schemes.find(s => s.Id === id)?.Name).filter(Boolean);
+    return `<article class="user-card">
+      <div class="identity"><strong>${esc(u.Email)}</strong>
+        <small>${u.Disabled ? 'Disabled' : 'Active'}${u.Role === 'viewer' && assigned.length ? ' · ' + esc(assigned.join(', ')) : ''}</small></div>
+      <select data-role="${esc(u.Id)}" aria-label="Role for ${esc(u.Email)}">
+        ${['viewer','manager','admin'].map(r => `<option value="${r}" ${u.Role===r?'selected':''}>${r}</option>`).join('')}
+      </select>
+      ${u.Disabled ? '' : `<button class="btn sm blue" data-reset="${esc(u.Id)}">Reset password</button>
+      <button class="btn sm red" data-disable="${esc(u.Id)}">Disable</button>`}
+    </article>`;
+  }).join('') || '<div class="empty">No users found.</div>';
 }
 function renderSchemeChoices(){
   $('#uSchemeChoices').innerHTML = state.schemes.map(s =>
