@@ -1,0 +1,7 @@
+flask>=3.0
+firebase-admin>=6.5
+python-dotenv>=1.0
+reportlab>=4.0
+gunicorn>=22.0
+openpyxl>=3.1
+tzdata

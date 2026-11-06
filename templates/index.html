@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#32116f">
+<title>Kumati Manager</title>
+<style>
+:root{
+  --purple:#7c2de0; --lav:#ead9ff; --lav2:#f6eeff;
+  --green:#0aa84a; --mint:#2ac878; --mint2:#eafaf1;
+  --ink:#1d1a24; --muted:#6b6478; --line:#e3dcee;
+  --in:#0b7a3b; --out:#b4231f; --exp:#c2410c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--ink);min-height:100vh;
+  font:15px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+  /* wallpaper: star lattice over violet-to-emerald glow */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Cg fill='none' stroke='white' stroke-opacity='.10' stroke-width='1.2'%3E%3Crect x='22' y='22' width='46' height='46'/%3E%3Crect x='22' y='22' width='46' height='46' transform='rotate(45 45 45)'/%3E%3Ccircle cx='45' cy='45' r='7'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(1100px 650px at 90% -10%, rgba(42,200,120,.55), transparent 60%),
+    radial-gradient(900px 600px at -10% 5%, rgba(196,120,255,.55), transparent 58%),
+    radial-gradient(900px 500px at 50% 120%, rgba(255,190,80,.28), transparent 60%),
+    linear-gradient(160deg,#1a0a3a 0%,#32116f 45%,#0b4a3c 100%);
+  background-attachment:fixed;
+}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 70px}
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+h1{margin:0;font-size:28px;letter-spacing:-.01em;color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
+h1 small{display:block;font-size:13px;font-weight:400;opacity:.8;letter-spacing:0}
+.tools{display:flex;gap:12px;flex-wrap:wrap}
+
+/* ---------- 3D buttons ---------- */
+button{font:inherit;cursor:pointer;color:inherit}
+.btn{
+  --c1:#9a5cf0; --c2:#6a1fc9; --c3:#45128a;
+  border:0;border-radius:12px;padding:10px 18px;font-weight:700;color:#fff;
+  background:linear-gradient(180deg,var(--c1),var(--c2));
+  box-shadow:0 6px 0 var(--c3), 0 12px 18px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);
+  text-shadow:0 1px 1px rgba(0,0,0,.35);
+  transition:transform .08s, box-shadow .08s, filter .15s;
+}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn:active{transform:translateY(5px);
+  box-shadow:0 1px 0 var(--c3), 0 3px 6px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.green{--c1:#3fdc8d;--c2:#0aa84a;--c3:#06702f}
+.btn.orange{--c1:#ff9a4d;--c2:#e2570c;--c3:#9a3a05}
+.btn.blue{--c1:#58b4ff;--c2:#1f78d1;--c3:#124f91}
+.btn.grey{--c1:#fff;--c2:#e5def2;--c3:#a99bc4;color:var(--ink);text-shadow:none}
+.btn.red{--c1:#ff6b6b;--c2:#d12d2d;--c3:#8a1717}
+.btn.sm{padding:4px 11px;font-size:13px;border-radius:9px;
+  box-shadow:0 3px 0 var(--c3), 0 6px 8px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.5)}
+.btn.sm:active{transform:translateY(2px);box-shadow:0 1px 0 var(--c3)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffd36b;outline-offset:2px}
+
+/* ---------- Table 1 ---------- */
+.month{margin-bottom:14px;border-radius:14px;overflow:hidden;background:#fff;
+  box-shadow:0 14px 30px rgba(10,0,40,.35)}
+.mbar{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  background:linear-gradient(180deg,#8a3df0,#6a1fc9);color:#fff;border:0;padding:13px 16px}
+.mbar:hover{background:linear-gradient(180deg,#9650f5,#7428d6)}
+.mbar .name{background:rgba(255,255,255,.22);padding:3px 14px;border-radius:99px;font-weight:600}
+.mbar .stats{margin-left:auto;font-size:13px;display:flex;gap:16px;flex-wrap:wrap}
+.mbar .chev{transition:transform .15s}
+.month.open .chev{transform:rotate(90deg)}
+.mbody{display:none}
+.month.open .mbody{display:block}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:820px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+thead th{background:var(--lav);font-size:13px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.t-IN{color:var(--in);font-weight:700}.t-OUT{color:var(--out);font-weight:700}.t-EXPENSE{color:var(--exp);font-weight:700}
+tr.exp td{background:#fff6ee}
+tr.out td{background:#fff1f1}
+.outto{max-width:260px;font-size:13px}
+.minus{color:var(--exp);font-weight:700}
+.foot{background:var(--lav2);padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:14px}
+.foot b{font-variant-numeric:tabular-nums}
+.foot .op{color:var(--muted)}
+.foot .res{margin-left:auto;background:var(--purple);color:#fff;padding:5px 14px;border-radius:99px;font-weight:700}
+.empty{padding:18px;color:var(--muted)}
+
+/* ---------- Table 2 ---------- */
+h2{margin:34px 0 12px;font-size:20px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.4)}
+.summary{border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 14px 30px rgba(0,30,20,.4)}
+.summary .title{background:linear-gradient(180deg,#14c261,#0aa84a);color:#fff;font-size:20px;font-weight:700;padding:13px 16px}
+.summary thead th{background:var(--mint);color:#fff}
+.summary tbody tr{cursor:pointer}
+.summary tbody tr:hover{background:var(--mint2)}
+.summary tbody td:first-child{font-weight:600}
+.pos{color:var(--in);font-weight:700}.neg{color:var(--out);font-weight:700}
+.hint{color:rgba(255,255,255,.8);font-size:13px;margin:10px 2px}
+
+/* ---------- kpis, search, toast ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.kpi{color:#fff;border-radius:16px;padding:12px 16px;
+  background:linear-gradient(160deg,rgba(255,255,255,.20),rgba(255,255,255,.07));
+  border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px);
+  box-shadow:0 10px 24px rgba(10,0,40,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+.kpi span{display:block;font-size:12px;opacity:.85}
+.kpi b{font-size:21px;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:22px}
+.chart{background:rgba(255,255,255,.94);border-radius:14px;padding:14px;box-shadow:0 10px 24px rgba(10,0,40,.3)}
+.chart h3{margin:0 0 12px;color:#32116f;font-size:16px}
+.bars{height:150px;display:flex;align-items:end;gap:5px;border-bottom:1px solid var(--line);padding:0 4px}
+.bar-col{height:100%;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;min-width:0}
+.bar{width:100%;max-width:28px;border-radius:5px 5px 0 0;background:linear-gradient(#9a5cf0,#6a1fc9);min-height:2px}
+.bar.negative{background:linear-gradient(#ff8a7a,#d12d2d)}
+.bar-label{font-size:10px;color:var(--muted);margin-top:5px;white-space:nowrap;transform:rotate(-35deg)}
+.chart-note{font-size:12px;color:var(--muted);margin-top:10px}
+.search{width:100%;margin-bottom:12px;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.92);box-shadow:0 6px 16px rgba(10,0,40,.25)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,30px);opacity:0;pointer-events:none;
+  background:#1d1a24;color:#fff;padding:11px 20px;border-radius:12px;font-weight:600;z-index:100;
+  box-shadow:0 14px 34px rgba(0,0,0,.45);transition:opacity .2s,transform .2s;max-width:92vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.bad{background:#b4231f}
+.connection{font-size:12px;color:#d8ffe7;background:rgba(0,0,0,.2);padding:5px 9px;border-radius:99px}
+.connection.bad{color:#ffd4d4}
+
+/* ---------- calendar layout ---------- */
+.layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.content{min-width:0}
+.cal{position:sticky;top:16px;border-radius:20px;padding:16px;color:#fff;
+  background:linear-gradient(160deg,rgba(255,255,255,.20),rgba(255,255,255,.07));
+  backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.30);
+  box-shadow:0 20px 44px rgba(10,0,40,.5), inset 0 1px 0 rgba(255,255,255,.35)}
+.cal-title{font-size:13px;opacity:.85;margin:0 0 6px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.year{font-size:30px;font-weight:800;letter-spacing:.03em;text-shadow:0 3px 12px rgba(0,0,0,.4)}
+.yb{width:38px;height:38px;border-radius:11px;border:0;color:#fff;font-size:16px;font-weight:700;
+  background:linear-gradient(180deg,#a56bff,#6a1fc9);
+  box-shadow:0 4px 0 #45128a,0 8px 12px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.5)}
+.yb:active{transform:translateY(3px);box-shadow:0 1px 0 #45128a}
+.yb:disabled{opacity:.3;cursor:default}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{display:flex;flex-direction:column;gap:1px;text-align:left;border:0;border-radius:14px;padding:10px 12px;color:#fff;
+  background:rgba(255,255,255,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 0 rgba(0,0,0,.28);
+  transition:transform .1s,filter .15s}
+.tile .mn{font-weight:700;font-size:15px}
+.tile .tag{font-size:11px;opacity:.92}
+.tile .rem{font-size:12px;font-variant-numeric:tabular-nums;opacity:.95}
+.tile.done{background:linear-gradient(160deg,#35dc8e,#0a8f48)}
+.tile.cur{background:linear-gradient(160deg,#b07cff,#6a1fc9)}
+.tile.sel{outline:3px solid #ffd36b;outline-offset:2px;transform:translateY(-2px)}
+.tile:disabled{opacity:.32;cursor:default;box-shadow:none}
+.tile:not(:disabled):hover{filter:brightness(1.12);transform:translateY(-1px)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:12px;opacity:.9}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.chead{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.mtitle{margin:0 0 8px;font-size:30px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips span{background:rgba(255,255,255,.18);color:#fff;padding:4px 12px;border-radius:99px;font-size:13px;border:1px solid rgba(255,255,255,.28)}
+.chips .big{background:#fff;color:var(--purple);font-weight:700}
+.mhead{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#8a3df0,#6a1fc9);color:#fff;padding:13px 16px;font-weight:600}
+.mhead .name{background:rgba(255,255,255,.22);padding:3px 14px;border-radius:99px}
+.summary tbody tr.selrow td{background:#dff7ea}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.cal{position:static}}
+
+/* ---------- dialogs ---------- */
+dialog{border:0;border-radius:16px;padding:0;width:min(520px,94vw);overflow:visible;
+  box-shadow:0 24px 70px rgba(20,0,60,.5)}
+dialog.wide{width:min(780px,96vw);overflow:auto;max-height:92vh}
+dialog::backdrop{background:rgba(20,5,50,.6);backdrop-filter:blur(3px)}
+form,.dbody{padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dbody{display:block}
+form h3,.dbody h3{grid-column:1/-1;margin:0 0 4px;font-size:18px}
+label,.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.full{grid-column:1/-1}
+input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius:9px;color:var(--ink);background:#fff;width:100%}
+.actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:12px;margin-top:8px}
+.err{grid-column:1/-1;color:var(--out);min-height:1em;font-size:13px}
+.expform h3{color:var(--exp)}
+.expnote{grid-column:1/-1;background:#fff6ee;border:1px solid #ffd9b8;border-radius:9px;padding:8px 10px;font-size:13px;color:#7a3a07}
+@media(max-width:600px){form{grid-template-columns:1fr}}
+
+/* person combo box */
+.combo{position:relative;display:flex;gap:6px}
+.combo input{flex:1}
+.combo .caret{border:1px solid var(--line);background:#fff;border-radius:9px;padding:0 12px;font-size:15px}
+.combo-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--line);
+  border-radius:10px;box-shadow:0 14px 30px rgba(30,0,70,.3);max-height:210px;overflow:auto;z-index:20}
+.combo-list button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;
+  border:0;background:#fff;padding:9px 12px;border-bottom:1px solid #f1ecf8}
+.combo-list button:hover{background:var(--lav2)}
+.combo-list small{color:var(--muted)}
+.combo-list .none{padding:10px 12px;color:var(--muted);font-size:13px}
+
+/* find person */
+.searchbox{display:flex;gap:8px;margin:8px 0 12px}
+.plist button{display:grid;grid-template-columns:1.2fr 1fr 1.6fr;gap:8px;width:100%;text-align:left;
+  background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.plist button:hover{border-color:var(--purple);background:var(--lav2)}
+.plist small{color:var(--muted);display:block}
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.stat{background:var(--lav2);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}.stat span{font-size:12px;color:var(--muted)}
+.dbody table{min-width:0}
+@media(max-width:600px){.plist button{grid-template-columns:1fr}.stats4{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Kumati Manager <small>Entries, people and monthly cash in one place</small></h1>
+    <div class="tools">
+      <span class="connection" id="connection">Connecting...</span>
+      <button class="btn grey" id="logoutBtn" hidden>Log out</button>
+      <button class="btn grey" id="usersBtn" hidden>👥 Users</button>
+      <button class="btn grey" id="backupBtn" hidden>⬇ Backup JSON</button>
+      <button class="btn grey" id="priceBtn">⚙ Price per kumati</button>
+      <button class="btn blue" id="findBtn">🔍 Find person</button>
+      <button class="btn" id="addBtn">+ Kumati in</button>
+      <button class="btn red" id="outBtn">↑ Kumati out</button>
+      <button class="btn orange" id="expBtn">Add expense</button>
+    </div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="charts" id="charts"></div>
+
+  <div class="layout">
+  <aside class="cal" aria-label="Month calendar">
+    <p class="cal-title">Calendar. Click a month to see its table.</p>
+    <div class="cal-head">
+      <button class="yb" id="prevYear" aria-label="Previous year">◀</button>
+      <span class="year" id="year"></span>
+      <button class="yb" id="nextYear" aria-label="Next year">▶</button>
+    </div>
+    <div class="cgrid" id="calGrid"></div>
+    <div class="legend">
+      <span><i style="background:#35dc8e"></i>Completed</span>
+      <span><i style="background:#b07cff"></i>Running</span>
+      <span><i style="background:rgba(255,255,255,.3)"></i>No data</span>
+    </div>
+  </aside>
+  <div class="content">
+  <div class="chead" id="chead"></div>
+  <input id="tableSearch" class="search" type="search" placeholder="🔍 Search this month by name, phone, method or note" aria-label="Search entries in this month">
+  <div id="months"></div>
+
+  <h2>Summary month wise</h2>
+  <div class="summary">
+    <div class="title">Summary Month Wise</div>
+    <div class="scroll">
+      <table id="sumTable">
+        <thead><tr>
+          <th>Month</th><th class="num">Total kumati in (no)</th><th class="num">Total kumati price</th>
+          <th class="num">Kumati out (no)</th><th class="num">Kumati out Rs</th><th>Kumati out to</th>
+          <th class="num">Expense</th><th class="num">Total remaining cash</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="hint">Remaining cash = previous month remaining + kumati in − kumati out − expense. Click a month here or in the calendar to open it.</p>
+  </div>
+  </div>
+</main>
+
+<!-- add / edit kumati entry -->
+<dialog id="dlg">
+  <form id="form" method="dialog" autocomplete="off">
+    <h3 id="dlgTitle">Add entry</h3>
+    <label>Date <input type="date" id="EntryDate" required></label>
+    <label>Type
+      <select id="EntryType">
+        <option value="IN">Kumati in (received from person)</option>
+        <option value="OUT">Kumati out (paid to person)</option>
+      </select>
+    </label>
+    <div class="field full">
+      <label for="PersonName">Person name (pick a saved person or type a new one)</label>
+      <div class="combo">
+        <input id="PersonName" required placeholder="Type name or choose from list">
+        <button type="button" class="caret" id="caret" aria-label="Show saved people">▾</button>
+        <div class="combo-list" id="comboList" hidden></div>
+      </div>
+    </div>
+    <label>Phone number <input id="Phone" inputmode="tel"></label>
+    <label>Easypaisa / Jazzcash / Bank
+      <select id="PayMethod">
+        <option value="">—</option><option>Cash</option><option>Easypaisa</option>
+        <option>JazzCash</option><option>Bank</option>
+      </select>
+    </label>
+    <label>Kumati count <input type="number" id="Units" min="1" value="1"></label>
+    <label>Price per kumati (Rs) <input type="number" id="Price" min="0" step="any"></label>
+    <label class="full">Amount (Rs). Count × price, you can still change it <input type="number" id="Amount" min="0" step="any"></label>
+    <label class="full">Note <input id="Note" maxlength="200"></label>
+    <div class="err" id="err" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn grey" id="cancel">Cancel</button>
+      <button type="submit" class="btn green">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- default price per kumati -->
+<dialog id="priceDlg">
+  <form id="priceForm" method="dialog" autocomplete="off">
+    <h3>Price per kumati</h3>
+    <div class="expnote" style="background:#f6eeff;border-color:#e3dcee;color:#4b2a86">New entries start with this price. Old entries keep the amount they were saved with. You can also change the price on any single entry.</div>
+    <label class="full">Price of one kumati (Rs) <input type="number" id="sPrice" min="1" step="any" required></label>
+    <div class="err" id="sErr" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn grey" id="sCancel">Cancel</button>
+      <button type="submit" class="btn green">Save price</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- add / edit expense -->
+<dialog id="expDlg">
+  <form id="expForm" method="dialog" class="expform" autocomplete="off">
+    <h3 id="expTitle">Add expense</h3>
+    <div class="expnote">This amount is subtracted from the month total in both tables.</div>
+    <label>Date <input type="date" id="xDate" required></label>
+    <label>Amount (Rs) <input type="number" id="xAmount" min="1" step="1" required></label>
+    <label class="full">Where used <input id="xWhere" required list="whereList" maxlength="100" placeholder="e.g. Rent, Electricity bill, Tea"></label>
+    <datalist id="whereList"></datalist>
+    <label class="full">Note (optional) <input id="xNote" maxlength="200"></label>
+    <div class="err" id="xErr" role="alert"></div>
+    <div class="actions">
+      <button type="button" class="btn grey" id="xCancel">Cancel</button>
+      <button type="submit" class="btn orange">Save expense</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- find person -->
+<dialog id="findDlg" class="wide">
+  <div class="dbody">
+    <h3>Find person</h3>
+    <div id="findList">
+      <div class="searchbox">
+        <input id="findQ" placeholder="Search by name or phone" aria-label="Search people">
+        <button class="btn blue" id="findGo" type="button">🔍</button>
+      </div>
+      <div class="plist" id="plist"></div>
+    </div>
+    <div id="findDetail" hidden></div>
+    <div class="actions" style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button type="button" class="btn grey" id="findClose">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="usersDlg" class="wide">
+  <div class="dbody">
+    <h3>User management</h3>
+    <form id="userForm" autocomplete="off">
+      <label>Email <input type="email" id="uEmail" required></label>
+      <label>Temporary password <input type="password" id="uPassword" minlength="6" required></label>
+      <label>Role <select id="uRole"><option value="viewer">Viewer</option><option value="manager">Manager</option><option value="admin">Admin</option></select></label>
+      <div class="err" id="uErr" role="alert"></div>
+      <button class="btn green" type="submit">Create user</button>
+    </form>
+    <div class="scroll"><table><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th></th></tr></thead>
+      <tbody id="userList"></tbody></table></div>
+    <div class="actions" style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button type="button" class="btn grey" id="usersClose">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => Number(n||0).toLocaleString('en-PK');
+const esc = s => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const monthLabel = m => new Date(m + '-01').toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+const TYPE_LABEL = {IN:'In', OUT:'Out', EXPENSE:'Expense'};
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10); // your local date, not UTC
+
+let state = {q:'', unitPrice:1000, current:null, months:[], sel:null, year:null, entries:[], persons:[], editing:null, editingExp:null, role:'viewer'};
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+async function api(url, opts){
+  const r = await fetch(url, opts);
+  if(r.status === 401){ location.href = '/login'; throw new Error('Please log in again'); }
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+const send = (url, method, body) => api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+
+async function loadEntries(){ state.entries = await api('/api/entries?month='+state.sel); }
+
+async function refresh(){
+  const connection = $('#connection');
+  try {
+  const [s, persons, cfg] = await Promise.all([api('/api/summary'), api('/api/persons'), api('/api/settings')]);
+  connection.textContent = 'Connected'; connection.classList.remove('bad');
+  state.current = s.current; state.months = s.months; state.persons = persons;
+  state.unitPrice = cfg.UnitPrice; state.role = cfg.Role; updatePriceBtn();
+  $('#logoutBtn').hidden = !cfg.Auth; $('#usersBtn').hidden = state.role !== 'admin';
+  $('#backupBtn').hidden = state.role !== 'admin';
+  document.querySelectorAll('#addBtn,#outBtn,#expBtn,#priceBtn').forEach(b => b.hidden = state.role === 'viewer');
+  if(!state.sel || !state.months.some(m => m.Month === state.sel)) state.sel = s.current;
+  state.year = +state.sel.slice(0,4);
+  await loadEntries();
+  render();
+  } catch (err) {
+    connection.textContent = 'Connection error'; connection.classList.add('bad');
+    toast(err.message || 'Could not load data', true);
+    throw err;
+  }
+}
+let toastTimer;
+function toast(msg, bad){
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' bad' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+async function selectMonth(m){
+  state.q = ''; $('#tableSearch').value = '';
+  state.sel = m; state.year = +m.slice(0,4);
+  await loadEntries();
+  render();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ================= calendar + Table 1 + Table 2 ================= */
+function render(){ renderKpis(); renderCharts(); renderCal(); renderMonth(); renderSummary(); }
+
+function renderKpis(){
+  const last = state.months[state.months.length - 1];
+  const tot = k => state.months.reduce((t, m) => t + m[k], 0);
+  $('#kpis').innerHTML = [
+    ['Cash in hand', 'Rs ' + fmt(last ? last.Remaining : 0)],
+    ['Total collected', 'Rs ' + fmt(tot('InAmount'))],
+    ['Total paid out', 'Rs ' + fmt(tot('OutAmount'))],
+    ['Total expenses', 'Rs ' + fmt(tot('Expense'))],
+    ['Saved people', fmt(state.persons.length)],
+  ].map(([l, v]) => `<div class="kpi"><span>${l}</span><b>${v}</b></div>`).join('');
+}
+function renderCharts(){
+  const recent = state.months.slice(-12);
+  const maxAbs = Math.max(1, ...recent.map(m => Math.abs(m.MonthNet)));
+  const maxCash = Math.max(1, ...recent.map(m => Math.abs(m.Remaining)));
+  const bars = (items, value, max, cls) => items.map(m => {
+    const n = Number(m[value] || 0);
+    const height = Math.max(2, Math.round(Math.abs(n) / max * 130));
+    return `<div class="bar-col" title="${monthLabel(m.Month)}: Rs ${fmt(n)}">
+      <div class="bar ${n < 0 ? 'negative' : ''} ${cls || ''}" style="height:${height}px"></div>
+      <span class="bar-label">${m.Month.slice(5)}</span></div>`;
+  }).join('');
+  $('#charts').innerHTML = `
+    <section class="chart"><h3>Monthly net cash flow</h3>
+      <div class="bars">${bars(recent, 'MonthNet', maxAbs)}</div>
+      <div class="chart-note">In minus out minus expenses. Red means a negative month.</div>
+    </section>
+    <section class="chart"><h3>Remaining cash</h3>
+      <div class="bars">${bars(recent, 'Remaining', maxCash, 'cash')}</div>
+      <div class="chart-note">Last 12 months, including the opening balance carried forward.</div>
+    </section>`;
+}
+
+function renderCal(){
+  const years = state.months.map(m => +m.Month.slice(0,4)).concat(+state.current.slice(0,4));
+  $('#year').textContent = state.year;
+  $('#prevYear').disabled = state.year <= Math.min(...years);
+  $('#nextYear').disabled = state.year >= Math.max(...years);
+  const by = Object.fromEntries(state.months.map(m => [m.Month, m]));
+  $('#calGrid').innerHTML = MONTHS.map((name, i) => {
+    const key = state.year + '-' + String(i+1).padStart(2,'0');
+    const m = by[key];
+    let cls = '', tag = 'No data';
+    if(m){
+      if(key === state.current){ cls = 'cur'; tag = 'Running'; }
+      else if(key < state.current){ cls = 'done'; tag = 'Completed ✓'; }
+      else tag = 'Upcoming';
+    }
+    if(key === state.sel) cls += ' sel';
+    return `<button class="tile ${cls}" data-m="${key}" ${m ? '' : 'disabled'}>
+      <span class="mn">${name}</span><span class="tag">${tag}</span>
+      <span class="rem">${m ? 'Rs ' + fmt(m.Remaining) : '—'}</span></button>`;
+  }).join('');
+  document.querySelectorAll('.tile[data-m]').forEach(b => b.onclick = () => selectMonth(b.dataset.m));
+}
+$('#prevYear').onclick = () => { state.year--; renderCal(); };
+$('#nextYear').onclick = () => { state.year++; renderCal(); };
+
+function renderMonth(){
+  const m = state.months.find(x => x.Month === state.sel);
+  $('#chead').innerHTML = `
+    <div><h2 class="mtitle">${monthLabel(state.sel)}</h2>
+      <div class="chips"><span>In Rs ${fmt(m.InAmount)}</span><span>Out Rs ${fmt(m.OutAmount)}</span>
+        <span>Expense Rs ${fmt(m.Expense)}</span><span class="big">Remaining Rs ${fmt(m.Remaining)}</span></div></div>
+    <div class="report-buttons">
+      <button class="btn green" id="pdfBtn">⬇ PDF</button>
+      <button class="btn blue" id="xlsxBtn">⬇ Excel</button>
+    </div>`;
+  $('#pdfBtn').onclick = () => { location.href = '/api/pdf?month=' + state.sel; };
+  $('#xlsxBtn').onclick = () => { location.href = '/api/xlsx?month=' + state.sel; };
+  renderTable();
+  const where = new Set(state.entries.filter(e => e.EntryType === 'EXPENSE').map(e => e.PersonName));
+  $('#whereList').innerHTML = [...where].map(n => `<option value="${esc(n)}">`).join('');
+}
+function renderTable(){
+  const m = state.months.find(x => x.Month === state.sel);
+  const status = state.sel < state.current ? 'Completed month' : 'Running month';
+  $('#months').innerHTML = `<section class="month open"><div class="mhead">
+      <span class="name">${monthLabel(state.sel)}</span><span>Entries · ${status}</span></div>
+      <div class="mbody">${bodyHtml(m)}</div></section>`;
+  const box = $('#months');
+  box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+    const e = findEntry(b.dataset.edit);
+    e.EntryType === 'EXPENSE' ? openExp(e) : openDlg(e);
+  });
+  box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => del(b.dataset.del));
+}
+$('#tableSearch').oninput = ev => { state.q = ev.target.value.trim().toLowerCase(); renderTable(); };
+
+function renderSummary(){
+  $('#sumTable tbody').innerHTML = state.months.map(m => `
+    <tr data-m="${m.Month}" class="${m.Month === state.sel ? 'selrow' : ''}">
+      <td>${monthLabel(m.Month)}</td><td class="num">${fmt(m.InUnits)}</td><td class="num">${fmt(m.InAmount)}</td>
+      <td class="num">${fmt(m.OutUnits)}</td><td class="num">${fmt(m.OutAmount)}</td>
+      <td class="outto">${m.OutTo.map(o => esc(o.PersonName) + ' (' + fmt(o.Amount) + ')').join(', ') || '—'}</td>
+      <td class="num minus">${fmt(m.Expense)}</td>
+      <td class="num ${m.Remaining<0?'neg':'pos'}" title="Opening ${fmt(m.Opening)} + this month ${fmt(m.MonthNet)}">${fmt(m.Remaining)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#sumTable tbody tr').forEach(tr => tr.onclick = () => selectMonth(tr.dataset.m));
+}
+
+function bodyHtml(m){
+  if(!state.entries.length) return '<div class="empty">No entries in this month yet.</div>' + footHtml(m);
+  const q = state.q;
+  const rows = !q ? state.entries : state.entries.filter(e =>
+    [e.PersonName, e.Phone, e.PayMethod, e.Note, TYPE_LABEL[e.EntryType]].join(' ').toLowerCase().includes(q));
+  if(!rows.length) return '<div class="empty">No entry matches your search.</div>' + footHtml(m);
+  return `<div class="scroll"><table>
+    <thead><tr><th>Date</th><th>Type</th><th>Person / where used</th><th>Phone</th><th>Easypaisa / Jazz / Bank</th>
+      <th class="num">Kumati</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead>
+    <tbody>${rows.map(e => { const x = e.EntryType==='EXPENSE'; return `
+      <tr class="${x?'exp':(e.EntryType==='OUT'?'out':'')}">
+        <td>${esc(e.EntryDate)}</td><td class="t-${e.EntryType}">${TYPE_LABEL[e.EntryType]}</td>
+        <td>${esc(e.PersonName)}</td><td>${esc(e.Phone)}</td><td>${esc(e.PayMethod)}</td>
+        <td class="num">${x?'':fmt(e.Units)}</td>
+        <td class="num ${x?'minus':''}">${fmt(e.Amount)}</td>
+        <td>${esc(e.Note)}</td>
+        <td style="white-space:nowrap"><a class="btn sm blue" href="/api/receipt/${encodeURIComponent(e.Id)}">Receipt</a>
+            <button class="btn sm grey" data-edit="${esc(e.Id)}">Edit</button>
+            <button class="btn sm red" data-del="${esc(e.Id)}">Delete</button></td>
+      </tr>`}).join('')}</tbody>
+  </table></div>` + footHtml(m);
+}
+function footHtml(m){
+  return `<div class="foot">
+    <span class="op">Opening <b>${fmt(m.Opening)}</b></span><span class="op">+</span>
+    <span>In <b>${fmt(m.InAmount)}</b></span><span class="op">less</span>
+    <span>Out <b>${fmt(m.OutAmount)}</b></span><span class="op">less</span>
+    <span class="minus">Expense <b>${fmt(m.Expense)}</b></span>
+    <span class="res">Remaining cash ${fmt(m.Remaining)}</span>
+  </div>`;
+}
+
+const findEntry = id => state.entries.find(e => e.Id === id);
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/static/service-worker.js'));
+}
+async function del(id){
+  if(!confirm('Delete this entry?')) return;
+  try{ await api('/api/entries/'+id, {method:'DELETE'}); }
+  catch(err){ toast(err.message, true); return; }
+  await refresh();
+  toast('Entry deleted');
+}
+
+/* ================= add / edit entry ================= */
+const F = ['EntryDate','EntryType','PersonName','Phone','PayMethod','Units','Amount','Note'];
+function openDlg(e, prefill){
+  state.editing = e ? e.Id : null;
+  
+  $('#err').textContent = '';
+  const d = e || Object.assign({EntryDate:today(), EntryType:'IN', Units:1}, prefill||{});
+  F.forEach(k => $('#'+k).value = d[k] ?? '');
+  if(e){ $('#Price').value = e.Units > 0 ? +(e.Amount / e.Units).toFixed(2) : state.unitPrice; }
+  else { $('#Price').value = state.unitPrice; recalc(); }
+  hideCombo(); setTitle();
+  $('#dlg').showModal();
+}
+function setTitle(){
+  const t = $('#EntryType').value === 'OUT' ? 'Kumati out (pay to person)' : 'Kumati in (received from person)';
+  $('#dlgTitle').textContent = (state.editing ? 'Edit: ' : '') + t;
+}
+$('#EntryType').onchange = setTitle;
+function recalc(){ $('#Amount').value = +((+$('#Units').value||0) * (+$('#Price').value||0)).toFixed(2); }
+$('#Units').oninput = recalc;
+$('#Price').oninput = recalc;
+
+/* default price dialog */
+function updatePriceBtn(){ $('#priceBtn').textContent = '⚙ Price per kumati: Rs ' + fmt(state.unitPrice); }
+$('#priceBtn').onclick = () => { $('#sPrice').value = state.unitPrice; $('#sErr').textContent = ''; $('#priceDlg').showModal(); };
+$('#logoutBtn').onclick = async () => { await fetch('/logout', {method:'POST'}); location.href = '/login'; };
+$('#backupBtn').onclick = () => { location.href = '/api/backup'; };
+$('#sCancel').onclick = () => $('#priceDlg').close();
+$('#priceForm').onsubmit = async ev => {
+  ev.preventDefault();
+  try{
+    const r = await send('/api/settings', 'PUT', {UnitPrice: $('#sPrice').value});
+    state.unitPrice = r.UnitPrice; updatePriceBtn();
+    $('#priceDlg').close();
+  }catch(err){ $('#sErr').textContent = err.message; }
+};
+$('#addBtn').onclick = () => openDlg(null, {EntryType:'IN'});
+$('#outBtn').onclick = () => openDlg(null, {EntryType:'OUT'});
+$('#cancel').onclick = () => $('#dlg').close();
+$('#form').onsubmit = async ev => {
+  ev.preventDefault();
+  const body = {}; F.forEach(k => body[k] = $('#'+k).value);
+  try{
+    const id = state.editing;
+    await send(id ? '/api/entries/'+id : '/api/entries', id?'PUT':'POST', body);
+    $('#dlg').close();
+    state.sel = body.EntryDate.slice(0,7);
+    await refresh();
+    toast('Saved ✓');
+  }catch(err){ $('#err').textContent = err.message; }
+};
+
+/* saved-person drop down */
+function showCombo(all){
+  const q = all ? '' : $('#PersonName').value.trim().toLowerCase();
+  const list = state.persons.filter(p => p.Name.toLowerCase().includes(q));
+  $('#comboList').innerHTML = list.length
+    ? list.map(p => `<button type="button" data-pid="${esc(p.Id)}"><b>${esc(p.Name)}</b><small>${esc(p.Phone||'')} ${esc(p.PayMethod||'')}</small></button>`).join('')
+    : '<div class="none">New person. Saved automatically when you save this entry.</div>';
+  $('#comboList').hidden = false;
+}
+function hideCombo(){ $('#comboList').hidden = true; }
+$('#PersonName').oninput = () => showCombo(false);
+$('#PersonName').onfocus = () => showCombo(false);
+$('#caret').onclick = () => $('#comboList').hidden ? showCombo(true) : hideCombo();
+$('#comboList').onclick = ev => {
+  const b = ev.target.closest('[data-pid]'); if(!b) return;
+  const p = state.persons.find(x => x.Id === b.dataset.pid);
+  $('#PersonName').value = p.Name; $('#Phone').value = p.Phone || ''; $('#PayMethod').value = p.PayMethod || '';
+  hideCombo();
+};
+document.addEventListener('click', ev => { if(!ev.target.closest('.combo')) hideCombo(); });
+
+/* ================= expense ================= */
+function openExp(e){
+  state.editingExp = e ? e.Id : null;
+  $('#expTitle').textContent = e ? 'Edit expense' : 'Add expense';
+  $('#xErr').textContent = '';
+  $('#xDate').value = e ? e.EntryDate : today();
+  $('#xAmount').value = e ? e.Amount : '';
+  $('#xWhere').value = e ? e.PersonName : '';
+  $('#xNote').value = e ? (e.Note || '') : '';
+  $('#expDlg').showModal();
+}
+$('#expBtn').onclick = () => openExp(null);
+$('#xCancel').onclick = () => $('#expDlg').close();
+$('#expForm').onsubmit = async ev => {
+  ev.preventDefault();
+  const body = {EntryDate:$('#xDate').value, EntryType:'EXPENSE', PersonName:$('#xWhere').value,
+                Amount:$('#xAmount').value, Units:0, Note:$('#xNote').value};
+  try{
+    const id = state.editingExp;
+    await send(id ? '/api/entries/'+id : '/api/entries', id?'PUT':'POST', body);
+    $('#expDlg').close();
+    state.sel = body.EntryDate.slice(0,7);
+    await refresh();
+    toast('Saved ✓');
+  }catch(err){ $('#xErr').textContent = err.message; }
+};
+
+/* ================= user management ================= */
+async function loadUsers(){
+  const users = await api('/api/users');
+  $('#userList').innerHTML = users.map(u => `<tr>
+    <td>${esc(u.Email)}</td><td><select data-role="${esc(u.Id)}">
+      ${['viewer','manager','admin'].map(r => `<option value="${r}" ${u.Role===r?'selected':''}>${r}</option>`).join('')}
+    </select></td><td>${u.Disabled ? 'Disabled' : 'Active'}</td>
+    <td>${u.Disabled ? '' : `<button class="btn sm blue" data-reset="${esc(u.Id)}">Reset</button>`}</td>
+    <td>${u.Disabled ? '' : `<button class="btn sm red" data-disable="${esc(u.Id)}">Disable</button>`}</td></tr>`).join('');
+}
+$('#usersBtn').onclick = async () => {
+  $('#uErr').textContent = ''; $('#uEmail').value = ''; $('#uPassword').value = '';
+  try { await loadUsers(); $('#usersDlg').showModal(); }
+  catch(err) { toast(err.message, true); }
+};
+$('#usersClose').onclick = () => $('#usersDlg').close();
+$('#userForm').onsubmit = async ev => {
+  ev.preventDefault();
+  try {
+    await send('/api/users', 'POST', {Email:$('#uEmail').value, Password:$('#uPassword').value, Role:$('#uRole').value});
+    await loadUsers(); ev.target.reset(); toast('User created');
+  } catch(err) { $('#uErr').textContent = err.message; }
+};
+$('#userList').onchange = async ev => {
+  const uid = ev.target.dataset.role;
+  if (!uid) return;
+  try { await send('/api/users/' + encodeURIComponent(uid), 'PUT', {Role:ev.target.value}); toast('Role updated'); }
+  catch(err) { toast(err.message, true); await loadUsers(); }
+};
+$('#userList').onclick = async ev => {
+  const reset = ev.target.closest('[data-reset]');
+  if (reset) {
+    const password = prompt('Enter a new temporary password (at least 6 characters):');
+    if (password === null) return;
+    try {
+      const row = reset.closest('tr');
+      const role = row.querySelector('[data-role]').value;
+      await send('/api/users/' + encodeURIComponent(reset.dataset.reset), 'PUT',
+                 {Role:role, Password:password});
+      toast('Password reset');
+    } catch(err) { toast(err.message, true); }
+    return;
+  }
+  const button = ev.target.closest('[data-disable]');
+  if (!button || !confirm('Disable this user?')) return;
+  try { await api('/api/users/' + encodeURIComponent(button.dataset.disable), {method:'DELETE'}); await loadUsers(); toast('User disabled'); }
+  catch(err) { toast(err.message, true); }
+};
+
+/* ================= find person ================= */
+function openFind(){
+  $('#findQ').value = '';
+  $('#findDetail').hidden = true; $('#findList').hidden = false;
+  renderFind();
+  $('#findDlg').showModal();
+  $('#findQ').focus();
+}
+function renderFind(){
+  const q = $('#findQ').value.trim().toLowerCase();
+  const list = state.persons.filter(p => p.Name.toLowerCase().includes(q) || (p.Phone||'').includes(q));
+  $('#plist').innerHTML = list.length ? list.map(p => `
+    <button type="button" data-pid="${esc(p.Id)}">
+      <span><b>${esc(p.Name)}</b><small>${esc(p.Phone||'No phone')}</small></span>
+      <span><small>${esc(p.PayMethod||'No method')}</small></span>
+      <span><small>In ${fmt(p.InUnits)} kumati (Rs ${fmt(p.InAmount)}) · Out ${fmt(p.OutUnits)} (Rs ${fmt(p.OutAmount)})</small></span>
+    </button>`).join('') : '<div class="empty">No saved person matches. New names are saved when you add an entry.</div>';
+}
+function whatsappLink(phone, name){
+  const digits = (phone || '').replace(/[^\d]/g, '');
+  if (!digits) return '';
+  const text = `Hello ${name}, this is a reminder about your Kumati account.`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+$('#findQ').oninput = renderFind;
+$('#findGo').onclick = renderFind;
+$('#findBtn').onclick = openFind;
+$('#findClose').onclick = () => $('#findDlg').close();
+$('#plist').onclick = async ev => {
+  const b = ev.target.closest('[data-pid]'); if(!b) return;
+  const d = await api('/api/person-entries?key='+encodeURIComponent(b.dataset.pid));
+  const inE = d.entries.filter(e=>e.EntryType==='IN'), outE = d.entries.filter(e=>e.EntryType==='OUT');
+  const sum = (a,k) => a.reduce((t,e)=>t+e[k],0);
+  $('#findDetail').innerHTML = `
+    <button class="btn sm grey" id="backBtn" type="button">← All people</button>
+    <h3 style="margin:12px 0 2px">${esc(d.person.Name)}</h3>
+    <div style="color:var(--muted)">${esc(d.person.Phone||'No phone')} · ${esc(d.person.PayMethod||'No payment method')}</div>
+    <div class="stats4">
+      <div class="stat"><b>${fmt(sum(inE,'Units'))}</b><span>Kumati in</span></div>
+      <div class="stat"><b>${fmt(sum(inE,'Amount'))}</b><span>Rs in</span></div>
+      <div class="stat"><b>${fmt(sum(outE,'Units'))}</b><span>Kumati out</span></div>
+      <div class="stat"><b>${fmt(sum(outE,'Amount'))}</b><span>Rs out</span></div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Date</th><th>Type</th><th class="num">Kumati</th><th class="num">Amount</th><th>Note</th></tr></thead>
+    <tbody>${d.entries.map(e=>`<tr><td>${e.EntryDate}</td><td class="t-${e.EntryType}">${TYPE_LABEL[e.EntryType]}</td>
+      <td class="num">${fmt(e.Units)}</td><td class="num">${fmt(e.Amount)}</td><td>${esc(e.Note)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="empty">No entries yet.</td></tr>'}</tbody></table></div>
+    <div style="margin-top:12px"><button class="btn green" id="addFor" type="button">+ Add entry for ${esc(d.person.Name)}</button>
+      ${whatsappLink(d.person.Phone, d.person.Name) ? `<a class="btn blue" target="_blank" rel="noopener" href="${whatsappLink(d.person.Phone, d.person.Name)}">WhatsApp reminder</a>` : ''}
+    </div>`;
+  $('#findList').hidden = true; $('#findDetail').hidden = false;
+  $('#backBtn').onclick = () => { $('#findDetail').hidden = true; $('#findList').hidden = false; };
+  $('#addFor').onclick = () => { $('#findDlg').close();
+    openDlg(null, {PersonName:d.person.Name, Phone:d.person.Phone||'', PayMethod:d.person.PayMethod||''}); };
+};
+
+refresh();
+</script>
+</body>
+</html>

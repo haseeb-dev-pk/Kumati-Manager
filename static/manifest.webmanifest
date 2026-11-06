@@ -1,0 +1,9 @@
+{
+  "name": "Kumati Manager",
+  "short_name": "Kumati",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#32116f",
+  "theme_color": "#32116f",
+  "description": "Kumati entries, people, expenses, and monthly cash reports."
+}
