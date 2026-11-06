@@ -775,8 +775,10 @@ async function loadUsers(){
       <select data-role="${esc(u.Id)}" aria-label="Role for ${esc(u.Email)}">
         ${['viewer','manager','admin'].map(r => `<option value="${r}" ${u.Role===r?'selected':''}>${r}</option>`).join('')}
       </select>
-      ${u.Disabled ? '' : `<button class="btn sm blue" data-reset="${esc(u.Id)}">Reset password</button>
-      <button class="btn sm red" data-disable="${esc(u.Id)}">Disable</button>`}
+      ${u.Disabled ? `<button class="btn sm green" data-enable="${esc(u.Id)}">Enable</button>` :
+        `<button class="btn sm blue" data-reset="${esc(u.Id)}">Reset password</button>
+        <button class="btn sm red" data-disable="${esc(u.Id)}">Disable</button>`}
+      <button class="btn sm red" data-delete-user="${esc(u.Id)}">Delete permanently</button>
     </article>`;
   }).join('') || '<div class="empty">No users found.</div>';
 }
@@ -812,7 +814,7 @@ $('#userList').onclick = async ev => {
     const password = prompt('Enter a new temporary password (at least 6 characters):');
     if (password === null) return;
     try {
-      const row = reset.closest('tr');
+      const row = reset.closest('.user-card');
       const role = row.querySelector('[data-role]').value;
       await send('/api/users/' + encodeURIComponent(reset.dataset.reset), 'PUT',
                  {Role:role, Password:password});
@@ -820,9 +822,34 @@ $('#userList').onclick = async ev => {
     } catch(err) { toast(err.message, true); }
     return;
   }
+  const enable = ev.target.closest('[data-enable]');
+  if (enable) {
+    try {
+      await api('/api/users/' + encodeURIComponent(enable.dataset.enable) + '/status', {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({Disabled:false})
+      });
+      await loadUsers(); toast('User enabled');
+    } catch(err) { toast(err.message, true); }
+    return;
+  }
   const button = ev.target.closest('[data-disable]');
-  if (!button || !confirm('Disable this user?')) return;
-  try { await api('/api/users/' + encodeURIComponent(button.dataset.disable), {method:'DELETE'}); await loadUsers(); toast('User disabled'); }
+  if (button && confirm('Disable this user?')) {
+    try { await api('/api/users/' + encodeURIComponent(button.dataset.disable), {method:'DELETE'}); await loadUsers(); toast('User disabled'); }
+    catch(err) { toast(err.message, true); }
+    return;
+  }
+  const remove = ev.target.closest('[data-delete-user]');
+  if (!remove) return;
+  const confirmation = prompt('This permanently deletes the user. Type delete to continue:');
+  if (confirmation === null) return;
+  try {
+    await api('/api/users/' + encodeURIComponent(remove.dataset.deleteUser) + '/permanent', {
+      method:'DELETE', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({Confirmation:confirmation})
+    });
+    await loadUsers(); toast('User permanently deleted');
+  }
   catch(err) { toast(err.message, true); }
 };
 

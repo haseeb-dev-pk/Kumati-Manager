@@ -456,6 +456,45 @@ def disable_user(uid):
     return jsonify(ok=True)
 
 
+@app.patch("/api/users/<uid>/status")
+@role_required("admin")
+def update_user_status(uid):
+    if uid == session.get("uid"):
+        return jsonify(error="You cannot disable your own account"), 400
+    payload = request.get_json(silent=True) or {}
+    disabled = payload.get("Disabled")
+    if not isinstance(disabled, bool):
+        return jsonify(error="Disabled must be true or false"), 400
+    try:
+        user = auth.get_user(uid)
+    except auth.UserNotFoundError:
+        return jsonify(error="User not found"), 404
+    auth.update_user(uid, disabled=disabled)
+    db.collection("users").document(uid).set(
+        {"Disabled": disabled, "UpdatedAt": now_iso()}, merge=True)
+    audit("user_enabled" if not disabled else "user_disabled",
+          {"UserId": uid, "Email": user.email})
+    return jsonify(ok=True, Disabled=disabled)
+
+
+@app.delete("/api/users/<uid>/permanent")
+@role_required("admin")
+def permanently_delete_user(uid):
+    if uid == session.get("uid"):
+        return jsonify(error="You cannot delete your own account"), 400
+    payload = request.get_json(silent=True) or {}
+    if str(payload.get("Confirmation") or "").strip().lower() != "delete":
+        return jsonify(error='Type "delete" to permanently remove this user'), 400
+    try:
+        user = auth.get_user(uid)
+    except auth.UserNotFoundError:
+        return jsonify(error="User not found"), 404
+    auth.delete_user(uid)
+    db.collection("users").document(uid).delete()
+    audit("user_deleted", {"UserId": uid, "Email": user.email})
+    return jsonify(ok=True)
+
+
 @app.get("/healthz")
 def healthz():
     return "ok"

@@ -68,3 +68,5 @@ Admins can download a JSON backup from the app header. Store that file securely;
 it contains application data but not Firebase credentials. Admins can also reset
 user passwords from the Users panel. Individual entries have PDF receipt links,
 and saved people with phone numbers have WhatsApp click-to-chat reminder links.
+Admins can reset the password of any other user, including another admin,
+enable disabled users, or permanently delete a user by confirming `delete`.
