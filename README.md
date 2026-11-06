@@ -56,6 +56,10 @@ to one or more schemes by an admin and only see the schemes assigned to them.
 Entries, people, balances, expenses, reports, receipts, backups, and unit
 prices are scoped to the selected scheme.
 
+Admins can open `Manage kumatis` to archive an ended scheme without losing its
+data, or permanently delete it. Permanent deletion requires typing `delete`
+and removes the scheme's entries, people, settings, and reports permanently.
+
 The monthly report supports PDF and Excel downloads. The Excel workbook contains
 separate `Entries` and `Summary` sheets. On supported browsers, the app can also
 be installed as a progressive web app from the browser's install option.

@@ -307,6 +307,60 @@ def create_scheme():
     return jsonify(Id=ref.id, Name=name), 201
 
 
+@app.get("/api/schemes/all")
+@role_required("admin")
+def list_all_schemes():
+    out = [dict(Id=sid, Name=scheme.get("Name", "Unnamed"),
+                Active=scheme.get("Active", True))
+           for sid, scheme in schemes.items()]
+    out.sort(key=lambda item: item["Name"].lower())
+    return jsonify(out)
+
+
+@app.patch("/api/schemes/<scheme_id>")
+@role_required("admin")
+def archive_scheme(scheme_id):
+    scheme = schemes.get(scheme_id)
+    if not scheme:
+        return jsonify(error="Kumati not found"), 404
+    active_count = sum(1 for item in schemes.values() if item.get("Active", True))
+    if scheme.get("Active", True) and active_count <= 1:
+        return jsonify(error="Keep at least one active Kumati"), 400
+    scheme["Active"] = False
+    db.collection("schemes").document(scheme_id).set({"Active": False}, merge=True)
+    audit("scheme_archived", {"SchemeId": scheme_id, "Name": scheme.get("Name")})
+    return jsonify(ok=True)
+
+
+@app.delete("/api/schemes/<scheme_id>")
+@role_required("admin")
+def delete_scheme(scheme_id):
+    scheme = schemes.get(scheme_id)
+    if not scheme:
+        return jsonify(error="Kumati not found"), 404
+    payload = request.get_json(silent=True) or {}
+    if str(payload.get("Confirmation") or "").strip().lower() != "delete":
+        return jsonify(error='Type "delete" to permanently remove this Kumati'), 400
+    if len(schemes) <= 1:
+        return jsonify(error="At least one Kumati must remain"), 400
+    batch = db.batch()
+    for collection, items in (("entries", entries), ("persons", persons)):
+        for doc_id, item in items.items():
+            if item.get("SchemeId") == scheme_id:
+                batch.delete(db.collection(collection).document(doc_id))
+    batch.delete(db.collection("settings").document(scheme_id))
+    batch.delete(db.collection("schemes").document(scheme_id))
+    batch.commit()
+    for item_id in [key for key, item in entries.items() if item.get("SchemeId") == scheme_id]:
+        entries.pop(item_id)
+    for item_id in [key for key, item in persons.items() if item.get("SchemeId") == scheme_id]:
+        persons.pop(item_id)
+    schemes.pop(scheme_id)
+    scheme_settings.pop(scheme_id, None)
+    audit("scheme_deleted", {"SchemeId": scheme_id, "Name": scheme.get("Name")})
+    return jsonify(ok=True)
+
+
 @app.get("/api/users")
 @role_required("admin")
 def list_users():

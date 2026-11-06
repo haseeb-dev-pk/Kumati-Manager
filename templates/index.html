@@ -179,6 +179,10 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
 .scheme-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;
   background:var(--lav2);border:1px solid var(--line);border-radius:11px}
 .scheme-card strong{display:block;color:var(--ink)}.scheme-card small{color:var(--muted)}
+.scheme-list{display:grid;gap:10px}
+.scheme-list .scheme-card.archived{opacity:.68;background:#f4f1f8}
+.scheme-card .scheme-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.hint.dark{color:var(--muted);margin:0 0 12px}
 .user-list{display:grid;gap:9px;margin-top:18px}
 .user-card{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:10px;
   padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:11px}
@@ -226,6 +230,7 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
       <div class="scheme-tools">
         <select id="schemeSelect" class="btn grey" aria-label="Select scheme"></select>
         <button class="btn grey" id="newSchemeBtn" hidden>+ New kumati</button>
+        <button class="btn grey" id="manageSchemesBtn" hidden>Manage kumatis</button>
         <button class="btn grey" id="logoutBtn" hidden>Log out</button>
         <button class="btn grey" id="usersBtn" hidden>👥 Users</button>
         <button class="btn grey" id="priceBtn">⚙ Price per kumati</button>
@@ -382,6 +387,17 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
   </form>
 </dialog>
 
+<dialog id="manageSchemesDlg" class="wide">
+  <div class="dbody">
+    <h3>Manage kumatis</h3>
+    <p class="hint dark">Archive an ended Kumati to hide it from the selector, or permanently delete it and all its data.</p>
+    <div class="scheme-list" id="schemeList"></div>
+    <div class="actions">
+      <button type="button" class="btn grey" id="manageSchemesClose">Close</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="usersDlg" class="wide">
   <div class="dbody">
     <h3>User management</h3>
@@ -443,6 +459,7 @@ async function refresh(){
   state.unitPrice = cfg.UnitPrice; state.role = cfg.Role; updatePriceBtn();
   $('#logoutBtn').hidden = !cfg.Auth; $('#usersBtn').hidden = state.role !== 'admin';
   $('#newSchemeBtn').hidden = !['admin','manager'].includes(state.role);
+  $('#manageSchemesBtn').hidden = state.role !== 'admin';
   document.querySelectorAll('#addBtn,#outBtn,#expBtn,#priceBtn').forEach(b => b.hidden = state.role === 'viewer');
   if(!state.sel || !state.months.some(m => m.Month === state.sel)) state.sel = s.current;
   state.year = +state.sel.slice(0,4);
@@ -470,6 +487,43 @@ async function refresh(){
       $('#schemeDlg').close(); state.schemeId = scheme.Id; await refresh();
       toast('New Kumati created');
     } catch(err) { $('#schemeErr').textContent = err.message; }
+  };
+  async function loadAllSchemes(){
+    const all = await api('/api/schemes/all');
+    $('#schemeList').innerHTML = all.map(s => `<article class="scheme-card ${s.Active ? '' : 'archived'}">
+      <div><strong>${esc(s.Name)}</strong><small>${s.Active ? 'Active' : 'Archived'}</small></div>
+      <div class="scheme-actions">
+        ${s.Active ? `<button class="btn sm grey" data-archive="${esc(s.Id)}">Archive</button>` : ''}
+        <button class="btn sm red" data-delete-scheme="${esc(s.Id)}">Delete</button>
+      </div>
+    </article>`).join('') || '<div class="empty">No Kumatis found.</div>';
+  }
+  $('#manageSchemesBtn').onclick = async () => {
+    try { await loadAllSchemes(); $('#manageSchemesDlg').showModal(); }
+    catch(err) { toast(err.message, true); }
+  };
+  $('#manageSchemesClose').onclick = () => $('#manageSchemesDlg').close();
+  $('#schemeList').onclick = async ev => {
+    const archive = ev.target.closest('[data-archive]');
+    if (archive) {
+      if (!confirm('Archive this ended Kumati? Its data will be kept.')) return;
+      try { await api('/api/schemes/' + encodeURIComponent(archive.dataset.archive),
+        {method:'PATCH', headers:{'Content-Type':'application/json'}, body:'{}'});
+        await loadAllSchemes(); await refresh(); toast('Kumati archived');
+      } catch(err) { toast(err.message, true); }
+      return;
+    }
+    const remove = ev.target.closest('[data-delete-scheme]');
+    if (!remove) return;
+    const confirmation = prompt('This permanently deletes all data in this Kumati. Type delete to continue:');
+    if (confirmation === null) return;
+    try {
+      await api('/api/schemes/' + encodeURIComponent(remove.dataset.deleteScheme), {
+        method:'DELETE', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({Confirmation:confirmation})
+      });
+      await loadAllSchemes(); await refresh(); toast('Kumati permanently deleted');
+    } catch(err) { toast(err.message, true); }
   };
 }
 let toastTimer;
