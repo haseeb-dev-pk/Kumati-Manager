@@ -789,24 +789,34 @@ def person_entries():
 
 
 def make_receipt_pdf(entry):
+    from xml.sax.saxutils import escape
     from reportlab.lib.pagesizes import A5
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     styles = getSampleStyleSheet()
+    pdf_font, pdf_text = pdf_text_support()
+    cell = styles["BodyText"].clone("receipt-cell")
+    cell.fontName = pdf_font
+    cell.fontSize = 9
+    cell.leading = 11
+
+    def P(value):
+        return Paragraph(escape(pdf_text(value)), cell)
+
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=28, rightMargin=28,
                             topMargin=28, bottomMargin=28,
                             title=f"Kumati receipt {entry['Id']}")
     rows = [
-        ["Date", entry["EntryDate"]],
-        ["Type", {"IN": "Kumati in", "OUT": "Kumati out", "EXPENSE": "Expense"}[entry["EntryType"]]],
-        ["Person / where used", entry["PersonName"]],
-        ["Phone", entry.get("Phone") or ""],
-        ["Payment method", entry.get("PayMethod") or ""],
-        ["Kumati", "" if entry["EntryType"] == "EXPENSE" else f"{int(entry.get('Units') or 0):,}"],
-        ["Amount", f"Rs {money(entry.get('Amount'))}"],
-        ["Note", entry.get("Note") or ""],
+        [P("Date"), P(entry["EntryDate"])],
+        [P("Type"), P({"IN": "Kumati in", "OUT": "Kumati out", "EXPENSE": "Expense"}[entry["EntryType"]])],
+        [P("Person / where used"), P(entry["PersonName"])],
+        [P("Phone"), P(entry.get("Phone") or "")],
+        [P("Payment method"), P(entry.get("PayMethod") or "")],
+        [P("Kumati"), P("" if entry["EntryType"] == "EXPENSE" else f"{int(entry.get('Units') or 0):,}")],
+        [P("Amount"), P(f"Rs {money(entry.get('Amount'))}")],
+        [P("Note"), P(entry.get("Note") or "")],
     ]
     story = [Paragraph("Kumati Manager", styles["Title"]),
              Paragraph("Transaction receipt", styles["Heading2"]), Spacer(1, 10)]
@@ -841,6 +851,28 @@ def money(n):
     return f"{float(n or 0):,.0f}"
 
 
+def pdf_text_support():
+    from arabic_reshaper import reshape
+    from bidi.algorithm import get_display
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_name = "KumatiNotoNaskhArabic"
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        font_path = os.path.join(HERE, "fonts", "NotoNaskhArabic-Regular.ttf")
+        if not os.path.exists(font_path):
+            raise RuntimeError("The PDF Urdu font is missing: " + font_path)
+        pdfmetrics.registerFont(TTFont(font_name, font_path))
+
+    def text(value):
+        value = str(value if value is not None else "")
+        if re.search(r"[\u0600-\u06ff]", value):
+            return get_display(reshape(value))
+        return value
+
+    return font_name, text
+
+
 def month_name(m):
     return date(int(m[:4]), int(m[5:7]), 1).strftime("%B %Y")
 
@@ -853,16 +885,17 @@ def make_pdf(month, rows_in, months):
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+    pdf_font, pdf_text = pdf_text_support()
     ss = getSampleStyleSheet()
-    cell = ParagraphStyle("cell", parent=ss["BodyText"], fontSize=8, leading=10)
-    head = ParagraphStyle("head", parent=cell, fontName="Helvetica-Bold", textColor=colors.white)
+    cell = ParagraphStyle("cell", parent=ss["BodyText"], fontName=pdf_font, fontSize=8, leading=10)
+    head = ParagraphStyle("head", parent=cell, textColor=colors.white)
     title = ParagraphStyle("title", parent=ss["Title"], fontSize=20, alignment=0,
                            textColor=colors.HexColor("#32116f"), spaceAfter=2)
     sub = ParagraphStyle("sub", parent=ss["Heading2"], fontSize=13,
                          textColor=colors.HexColor("#32116f"), spaceBefore=12, spaceAfter=6)
 
     def P(t, st=cell):
-        return Paragraph(escape(str(t if t is not None else "")), st)
+        return Paragraph(escape(pdf_text(t)), st)
 
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=24, rightMargin=24,
@@ -878,9 +911,9 @@ def make_pdf(month, rows_in, months):
     label = {"IN": "In", "OUT": "Out", "EXPENSE": "Expense"}
     for i, e in enumerate(rows_in, start=1):
         x = e["EntryType"] == "EXPENSE"
-        rows.append([e["EntryDate"], label[e["EntryType"]], P(e["PersonName"]),
-                     e["Phone"] or "", e["PayMethod"] or "",
-                     "" if x else f"{int(e['Units']):,}", money(e["Amount"]), P(e["Note"])])
+        rows.append([P(e["EntryDate"]), P(label[e["EntryType"]]), P(e["PersonName"]),
+                     P(e["Phone"]), P(e["PayMethod"]),
+                     P("" if x else f"{int(e['Units']):,}"), P(money(e["Amount"])), P(e["Note"])])
         if x:
             tint.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fff3e8")))
         elif e["EntryType"] == "OUT":
@@ -913,9 +946,9 @@ def make_pdf(month, rows_in, months):
     rows2, tint2 = [[P(c, head) for c in cols2]], []
     for i, x in enumerate(months, start=1):
         outto = ", ".join(f"{o['PersonName']} ({money(o['Amount'])})" for o in x["OutTo"]) or "-"
-        rows2.append([month_name(x["Month"]), f"{int(x['InUnits']):,}", money(x["InAmount"]),
-                      f"{int(x['OutUnits']):,}", money(x["OutAmount"]), P(outto),
-                      money(x["Expense"]), money(x["Remaining"])])
+        rows2.append([P(month_name(x["Month"])), P(f"{int(x['InUnits']):,}"), P(money(x["InAmount"])),
+                      P(f"{int(x['OutUnits']):,}"), P(money(x["OutAmount"])), P(outto),
+                      P(money(x["Expense"])), P(money(x["Remaining"]))])
         if x["Month"] == month:
             tint2.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#dff7ea")))
     t2 = Table(rows2, colWidths=[90, 70, 90, 70, 80, 184, 80, 130], repeatRows=1)

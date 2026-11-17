@@ -588,8 +588,10 @@ function renderMonth(){
       <button class="btn green" id="pdfBtn">⬇ PDF</button>
       <button class="btn blue" id="xlsxBtn">⬇ Excel</button>
     </div>`;
-  $('#pdfBtn').onclick = () => { location.href = '/api/pdf?month=' + state.sel; };
-  $('#xlsxBtn').onclick = () => { location.href = '/api/xlsx?month=' + state.sel; };
+  const exportUrl = path => path + '?month=' + encodeURIComponent(state.sel) +
+    '&scheme=' + encodeURIComponent(state.schemeId);
+  $('#pdfBtn').onclick = () => { location.href = exportUrl('/api/pdf'); };
+  $('#xlsxBtn').onclick = () => { location.href = exportUrl('/api/xlsx'); };
   renderTable();
   const where = new Set(state.entries.filter(e => e.EntryType === 'EXPENSE').map(e => e.PersonName));
   $('#whereList').innerHTML = [...where].map(n => `<option value="${esc(n)}">`).join('');
