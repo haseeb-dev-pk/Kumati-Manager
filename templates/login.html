@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kumati Manager - Login</title>
+<title>اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد - Login</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;color:#1d1a24;
@@ -17,6 +17,10 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;colo
 form{width:min(380px,100%);background:#fff;border-radius:20px;padding:28px;display:grid;gap:14px;
   box-shadow:0 24px 70px rgba(20,0,60,.5)}
 h1{margin:0;font-size:24px}
+.login-brand{text-align:center;direction:rtl}
+.login-brand img{width:112px;height:112px;object-fit:contain;border-radius:50%;background:#fff;padding:5px;
+  margin:0 auto 10px;display:block;box-shadow:0 10px 24px rgba(40,20,70,.18)}
+.login-brand h1{font-size:21px;line-height:1.35}
 p{margin:0;color:#6b6478}
 label{display:grid;gap:5px;font-size:13px;color:#6b6478}
 input{font:inherit;padding:11px;border:1px solid #e3dcee;border-radius:10px;width:100%}
@@ -30,7 +34,10 @@ button:active{transform:translateY(5px);box-shadow:0 1px 0 #45128a}
 </head>
 <body>
 <form method="{{ 'post' if not firebase_auth else 'dialog' }}" autocomplete="on" id="loginForm">
-  <h1>Kumati Manager</h1>
+  <div class="login-brand">
+    <img src="/static/committee-logo.png" alt="اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد">
+    <h1>اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد</h1>
+  </div>
   <p id="loginIntro">Sign in to open your records.</p>
   {% if firebase_auth %}<label>Email
     <input type="email" name="email" autocomplete="username" autofocus required>

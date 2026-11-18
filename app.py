@@ -794,7 +794,8 @@ def make_receipt_pdf(entry):
     from xml.sax.saxutils import escape
     from reportlab.lib.pagesizes import A5
     from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     styles = getSampleStyleSheet()
     pdf_font, pdf_text = pdf_text_support()
@@ -805,6 +806,9 @@ def make_receipt_pdf(entry):
 
     def P(value):
         return Paragraph(escape(pdf_text(value)), cell)
+
+    brand = ParagraphStyle("brand", parent=styles["Title"], fontName=pdf_font,
+                           fontSize=13, leading=16, alignment=1)
 
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=28, rightMargin=28,
@@ -821,7 +825,11 @@ def make_receipt_pdf(entry):
         [P("Amount"), P(f"Rs {money(entry.get('Amount'))}")],
         [P("Note"), P(entry.get("Note") or "")],
     ]
-    story = [Paragraph("Kumati Manager", styles["Title"]),
+    logo_path = os.path.join(HERE, "static", "committee-logo.png")
+    logo = Image(logo_path, width=64, height=64)
+    logo.hAlign = "CENTER"
+    story = [logo, Spacer(1, 4),
+             Paragraph(pdf_text("اتحادِ اُخوت ویلفیئر کمیٹی"), brand),
              Paragraph("Transaction receipt", styles["Heading2"]), Spacer(1, 10)]
     table = Table(rows, colWidths=[120, 210])
     table.setStyle(TableStyle([
@@ -886,13 +894,15 @@ def make_pdf(month, rows_in, months):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     pdf_font, pdf_text = pdf_text_support()
     ss = getSampleStyleSheet()
     cell = ParagraphStyle("cell", parent=ss["BodyText"], fontName=pdf_font, fontSize=8, leading=10)
     head = ParagraphStyle("head", parent=cell, textColor=colors.white)
     title = ParagraphStyle("title", parent=ss["Title"], fontSize=20, alignment=0,
+                           fontName=pdf_font, textColor=colors.HexColor("#32116f"), spaceAfter=2)
+    brand = ParagraphStyle("brand", parent=title, fontSize=16, alignment=1,
                            textColor=colors.HexColor("#32116f"), spaceAfter=2)
     sub = ParagraphStyle("sub", parent=ss["Heading2"], fontSize=13,
                          textColor=colors.HexColor("#32116f"), spaceBefore=12, spaceAfter=6)
@@ -903,7 +913,14 @@ def make_pdf(month, rows_in, months):
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=24, rightMargin=24,
                             topMargin=26, bottomMargin=26, title=f"Kumati report {month}")
-    story = [Paragraph(f"Kumati Report - {month_name(month)}", title),
+    logo_path = os.path.join(HERE, "static", "committee-logo.png")
+    logo = Image(logo_path, width=62, height=62)
+    logo.hAlign = "CENTER"
+    brand_row = Table([[logo, Paragraph(pdf_text("اتحادِ اُخوت ویلفیئر کمیٹی"), brand)]],
+                      colWidths=[90, 620])
+    brand_row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                   ("ALIGN", (1, 0), (1, 0), "RIGHT")]))
+    story = [brand_row, Paragraph(f"Kumati Report - {month_name(month)}", title),
              P(f"Generated on {today_date():%d %b %Y}"), Spacer(1, 6),
              Paragraph("Table 1 - Entries", sub)]
 
@@ -991,7 +1008,8 @@ def xlsx_report():
         return "Invalid month", 400
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.drawing.image import Image as ExcelImage
     except ImportError:
         return "Excel export needs openpyxl. Install requirements.txt first.", 500
 
@@ -1001,10 +1019,24 @@ def xlsx_report():
     workbook = Workbook()
     entries_sheet = workbook.active
     entries_sheet.title = "Entries"
+    entries_sheet.merge_cells("B2:I2")
+    entries_sheet["B2"] = "اتحادِ اُخوت ویلفیئر کمیٹی"
+    entries_sheet["B2"].font = Font(bold=True, size=16, color="32116F")
+    entries_sheet["B2"].alignment = Alignment(
+        horizontal="right", vertical="center", readingOrder=2)
+    logo_path = os.path.join(HERE, "static", "committee-logo.png")
+    if os.path.exists(logo_path):
+        entries_logo = ExcelImage(logo_path)
+        entries_logo.width = 70
+        entries_logo.height = 70
+        entries_sheet.add_image(entries_logo, "A1")
+    entries_sheet.row_dimensions[1].height = 55
+    entries_sheet.row_dimensions[2].height = 28
     headers = ["Date", "Type", "Person / where used", "Phone", "Payment method",
                "Controlled by", "Kumati", "Amount", "Note"]
+    entries_sheet.append([])
     entries_sheet.append(headers)
-    for cell in entries_sheet[1]:
+    for cell in entries_sheet[4]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="7C2DE0")
     for e in rows:
@@ -1013,17 +1045,30 @@ def xlsx_report():
             e.get("PayMethod") or "", e.get("ResponsiblePerson") or "",
             e.get("Units") or 0, e.get("Amount") or 0, e.get("Note") or "",
         ])
-    entries_sheet.freeze_panes = "A2"
-    entries_sheet.auto_filter.ref = entries_sheet.dimensions
+    entries_sheet.freeze_panes = "A5"
+    entries_sheet.auto_filter.ref = "A4:I{}".format(entries_sheet.max_row)
     for column in entries_sheet.columns:
         width = min(max(len(str(cell.value or "")) for cell in column) + 2, 35)
         entries_sheet.column_dimensions[column[0].column_letter].width = width
 
     summary_sheet = workbook.create_sheet("Summary")
+    summary_sheet.merge_cells("B2:H2")
+    summary_sheet["B2"] = "اتحادِ اُخوت ویلفیئر کمیٹی"
+    summary_sheet["B2"].font = Font(bold=True, size=16, color="32116F")
+    summary_sheet["B2"].alignment = Alignment(
+        horizontal="right", vertical="center", readingOrder=2)
+    if os.path.exists(logo_path):
+        summary_logo = ExcelImage(logo_path)
+        summary_logo.width = 70
+        summary_logo.height = 70
+        summary_sheet.add_image(summary_logo, "A1")
+    summary_sheet.row_dimensions[1].height = 55
+    summary_sheet.row_dimensions[2].height = 28
     summary_headers = ["Month", "Kumati in", "Kumati in Rs", "Kumati out",
                        "Kumati out Rs", "Expense Rs", "Opening cash", "Remaining cash"]
+    summary_sheet.append([])
     summary_sheet.append(summary_headers)
-    for cell in summary_sheet[1]:
+    for cell in summary_sheet[4]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="0AA84A")
     for item in months:
@@ -1031,8 +1076,8 @@ def xlsx_report():
             item["Month"], item["InUnits"], item["InAmount"], item["OutUnits"],
             item["OutAmount"], item["Expense"], item["Opening"], item["Remaining"],
         ])
-    summary_sheet.freeze_panes = "A2"
-    summary_sheet.auto_filter.ref = summary_sheet.dimensions
+    summary_sheet.freeze_panes = "A5"
+    summary_sheet.auto_filter.ref = "A4:H{}".format(summary_sheet.max_row)
     for column in summary_sheet.columns:
         width = min(max(len(str(cell.value or "")) for cell in column) + 2, 22)
         summary_sheet.column_dimensions[column[0].column_letter].width = width

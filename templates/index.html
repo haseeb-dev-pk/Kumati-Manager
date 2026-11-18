@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#32116f">
-<title>Kumati Manager</title>
+<title>اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد</title>
 <style>
 :root{
   --purple:#7c2de0; --lav:#ead9ff; --lav2:#f6eeff;
@@ -34,6 +34,10 @@ header{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,1.8fr);ali
   backdrop-filter:blur(14px)}
 h1{margin:0;font-size:30px;letter-spacing:-.02em;color:#fff;text-shadow:0 3px 14px rgba(0,0,0,.45)}
 h1 small{display:block;margin-top:3px;font-size:12px;font-weight:400;opacity:.78;letter-spacing:0}
+.brand{display:flex;align-items:center;gap:12px;direction:rtl}
+.brand img{width:78px;height:78px;object-fit:contain;border-radius:50%;background:#fff;padding:3px;
+  box-shadow:0 8px 22px rgba(0,0,0,.35)}
+.brand h1{direction:ltr;font-size:24px;line-height:1.25;text-align:right}
 .tools{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center}
 .scheme-tools{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .account-tools,.entry-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -225,7 +229,12 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
 <body>
 <main>
   <header>
-    <h1>Kumati Manager <small>Entries, people and monthly cash in one place</small></h1>
+    <div class="brand">
+      <img src="/static/committee-logo.png" alt="اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد">
+      <h1>اتحادِ اُخوت ویلفیئر کمیٹی بشیر آباد
+        <small>انٹریز، افراد اور ماہانہ اکاؤنٹس</small>
+      </h1>
+    </div>
     <div class="tools">
       <div class="scheme-tools">
         <select id="schemeSelect" class="btn grey" aria-label="Select scheme"></select>
