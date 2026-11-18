@@ -182,7 +182,8 @@ def snapshot():
 
 def public(e):
     return {k: e.get(k) for k in ("Id", "EntryDate", "EntryType", "PersonName",
-                                  "Phone", "PayMethod", "Units", "Amount", "Note")}
+                                  "Phone", "PayMethod", "ResponsiblePerson", "Units",
+                                  "Amount", "Note")}
 
 
 @app.errorhandler(Exception)
@@ -611,8 +612,9 @@ def read_payload(scheme_id):
         existing = persons.get(f"{scheme_id}:{person_key(name)}")
         if existing:                       # "danish" and "Danish" are one person
             name = existing["Name"]
+    responsible = str(j.get("ResponsiblePerson") or "").strip()[:100] or None
     return dict(SchemeId=scheme_id, EntryDate=d.isoformat(), EntryType=etype, PersonName=name,
-                Phone=phone, PayMethod=method, Units=units, Amount=amount,
+                Phone=phone, PayMethod=method, ResponsiblePerson=responsible, Units=units, Amount=amount,
                 Note=str(j.get("Note") or "").strip()[:200] or None)
 
 
@@ -814,6 +816,7 @@ def make_receipt_pdf(entry):
         [P("Person / where used"), P(entry["PersonName"])],
         [P("Phone"), P(entry.get("Phone") or "")],
         [P("Payment method"), P(entry.get("PayMethod") or "")],
+        [P("Controlled by"), P(entry.get("ResponsiblePerson") or "")],
         [P("Kumati"), P("" if entry["EntryType"] == "EXPENSE" else f"{int(entry.get('Units') or 0):,}")],
         [P("Amount"), P(f"Rs {money(entry.get('Amount'))}")],
         [P("Note"), P(entry.get("Note") or "")],
@@ -906,24 +909,24 @@ def make_pdf(month, rows_in, months):
 
     # ---- Table 1 ----
     cols = ["Date", "Type", "Person / where used", "Phone", "Easypaisa / Jazz / Bank",
-            "Kumati", "Amount", "Note"]
+            "Controlled by", "Kumati", "Amount", "Note"]
     rows, tint = [[P(c, head) for c in cols]], []
     label = {"IN": "In", "OUT": "Out", "EXPENSE": "Expense"}
     for i, e in enumerate(rows_in, start=1):
         x = e["EntryType"] == "EXPENSE"
         rows.append([P(e["EntryDate"]), P(label[e["EntryType"]]), P(e["PersonName"]),
-                     P(e["Phone"]), P(e["PayMethod"]),
+                     P(e["Phone"]), P(e["PayMethod"]), P(e["ResponsiblePerson"]),
                      P("" if x else f"{int(e['Units']):,}"), P(money(e["Amount"])), P(e["Note"])])
         if x:
             tint.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fff3e8")))
         elif e["EntryType"] == "OUT":
             tint.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fff0f0")))
     if rows_in:
-        t1 = Table(rows, colWidths=[62, 46, 150, 84, 92, 50, 66, 244], repeatRows=1)
+        t1 = Table(rows, colWidths=[58, 42, 125, 72, 82, 90, 45, 60, 219], repeatRows=1)
         t1.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7c2de0")),
             ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d9cfe8")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (5, 1), (6, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (6, 1), (7, -1), "RIGHT"),
             ("FONTSIZE", (0, 1), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ] + tint))
@@ -999,7 +1002,7 @@ def xlsx_report():
     entries_sheet = workbook.active
     entries_sheet.title = "Entries"
     headers = ["Date", "Type", "Person / where used", "Phone", "Payment method",
-               "Kumati", "Amount", "Note"]
+               "Controlled by", "Kumati", "Amount", "Note"]
     entries_sheet.append(headers)
     for cell in entries_sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
@@ -1007,8 +1010,8 @@ def xlsx_report():
     for e in rows:
         entries_sheet.append([
             e["EntryDate"], e["EntryType"], e["PersonName"], e.get("Phone") or "",
-            e.get("PayMethod") or "", e.get("Units") or 0, e.get("Amount") or 0,
-            e.get("Note") or "",
+            e.get("PayMethod") or "", e.get("ResponsiblePerson") or "",
+            e.get("Units") or 0, e.get("Amount") or 0, e.get("Note") or "",
         ])
     entries_sheet.freeze_panes = "A2"
     entries_sheet.auto_filter.ref = entries_sheet.dimensions

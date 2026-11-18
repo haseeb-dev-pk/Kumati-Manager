@@ -260,7 +260,7 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
   </aside>
   <div class="content">
   <div class="chead" id="chead"></div>
-  <input id="tableSearch" class="search" type="search" placeholder="🔍 Search this month by name, phone, method or note" aria-label="Search entries in this month">
+  <input id="tableSearch" class="search" type="search" placeholder="🔍 Search this month by name, phone, responsible person, method or note" aria-label="Search entries in this month">
   <div id="months"></div>
 
   <h2>Summary month wise</h2>
@@ -308,6 +308,9 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
         <option>JazzCash</option><option>Bank</option>
       </select>
     </label>
+    <label class="full">Controlled by / responsible person
+      <input id="ResponsiblePerson" maxlength="100" placeholder="Who handles this Kumati person?">
+    </label>
     <label>Kumati count <input type="number" id="Units" min="1" value="1"></label>
     <label>Price per kumati (Rs) <input type="number" id="Price" min="0" step="any"></label>
     <label class="full">Amount (Rs). Count × price, you can still change it <input type="number" id="Amount" min="0" step="any"></label>
@@ -342,6 +345,9 @@ input,select{font:inherit;padding:9px;border:1px solid var(--line);border-radius
     <label>Date <input type="date" id="xDate" required></label>
     <label>Amount (Rs) <input type="number" id="xAmount" min="1" step="1" required></label>
     <label class="full">Where used <input id="xWhere" required list="whereList" maxlength="100" placeholder="e.g. Rent, Electricity bill, Tea"></label>
+    <label class="full">Controlled by / responsible person
+      <input id="xResponsiblePerson" maxlength="100" placeholder="Who is responsible?">
+    </label>
     <datalist id="whereList"></datalist>
     <label class="full">Note (optional) <input id="xNote" maxlength="200"></label>
     <div class="err" id="xErr" role="alert"></div>
@@ -627,15 +633,16 @@ function bodyHtml(m){
   if(!state.entries.length) return '<div class="empty">No entries in this month yet.</div>' + footHtml(m);
   const q = state.q;
   const rows = !q ? state.entries : state.entries.filter(e =>
-    [e.PersonName, e.Phone, e.PayMethod, e.Note, TYPE_LABEL[e.EntryType]].join(' ').toLowerCase().includes(q));
+    [e.PersonName, e.Phone, e.PayMethod, e.ResponsiblePerson, e.Note, TYPE_LABEL[e.EntryType]].join(' ').toLowerCase().includes(q));
   if(!rows.length) return '<div class="empty">No entry matches your search.</div>' + footHtml(m);
   return `<div class="scroll"><table>
     <thead><tr><th>Date</th><th>Type</th><th>Person / where used</th><th>Phone</th><th>Easypaisa / Jazz / Bank</th>
-      <th class="num">Kumati</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead>
+      <th>Controlled by</th><th class="num">Kumati</th><th class="num">Amount</th><th>Note</th><th></th></tr></thead>
     <tbody>${rows.map(e => { const x = e.EntryType==='EXPENSE'; return `
       <tr class="${x?'exp':(e.EntryType==='OUT'?'out':'')}">
         <td>${esc(e.EntryDate)}</td><td class="t-${e.EntryType}">${TYPE_LABEL[e.EntryType]}</td>
         <td>${esc(e.PersonName)}</td><td>${esc(e.Phone)}</td><td>${esc(e.PayMethod)}</td>
+        <td>${esc(e.ResponsiblePerson)}</td>
         <td class="num">${x?'':fmt(e.Units)}</td>
         <td class="num ${x?'minus':''}">${fmt(e.Amount)}</td>
         <td>${esc(e.Note)}</td>
@@ -668,7 +675,7 @@ async function del(id){
 }
 
 /* ================= add / edit entry ================= */
-const F = ['EntryDate','EntryType','PersonName','Phone','PayMethod','Units','Amount','Note'];
+const F = ['EntryDate','EntryType','PersonName','Phone','PayMethod','ResponsiblePerson','Units','Amount','Note'];
 function openDlg(e, prefill){
   state.editing = e ? e.Id : null;
   
@@ -747,6 +754,7 @@ function openExp(e){
   $('#xDate').value = e ? e.EntryDate : today();
   $('#xAmount').value = e ? e.Amount : '';
   $('#xWhere').value = e ? e.PersonName : '';
+  $('#xResponsiblePerson').value = e ? (e.ResponsiblePerson || '') : '';
   $('#xNote').value = e ? (e.Note || '') : '';
   $('#expDlg').showModal();
 }
@@ -755,7 +763,8 @@ $('#xCancel').onclick = () => $('#expDlg').close();
 $('#expForm').onsubmit = async ev => {
   ev.preventDefault();
   const body = {EntryDate:$('#xDate').value, EntryType:'EXPENSE', PersonName:$('#xWhere').value,
-                Amount:$('#xAmount').value, Units:0, Note:$('#xNote').value};
+                Amount:$('#xAmount').value, Units:0, ResponsiblePerson:$('#xResponsiblePerson').value,
+                Note:$('#xNote').value};
   try{
     const id = state.editingExp;
     await send(id ? '/api/entries/'+id : '/api/entries', id?'PUT':'POST', body);
